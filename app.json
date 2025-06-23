@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "finbuddy-fresh",
+    "name": "FinBuddy",
     "slug": "finbuddy-fresh",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,13 +13,20 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.denizdaghan.finbuddy",
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.denizdaghan.finbuddy",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -28,7 +35,10 @@
     "extra": {
       "SUPABASE_URL": "https://svbncibeivrxzhffvzvy.supabase.co",
       "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2Ym5jaWJlaXZyeHpoZmZ2enZ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0NzcxMDIsImV4cCI6MjA2MzA1MzEwMn0.FH9s8FnZJZbuDAC03mIJyV3JXqf-sFFzpOoltqCqmrI",
-      "FINNHUB_API_KEY": "d19h4vpr01qmm7tv5o0gd19h4vpr01qmm7tv5o10"
+      "FINNHUB_API_KEY": "d19h4vpr01qmm7tv5o0gd19h4vpr01qmm7tv5o10",
+      "eas": {
+        "projectId": "9b0d9e28-4c0f-4272-b0bd-584b7521f5df"
+      }
     }
   }
 }
