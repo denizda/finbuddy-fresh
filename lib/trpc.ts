@@ -25,9 +25,9 @@ const getBaseUrl = () => {
     return ''; // Use relative URL for web
   }
   
-  // For production native apps - USE YOUR VERCEL URL HERE
-  // Replace this with your actual Vercel URL once deployed
-  const VERCEL_URL = 'https://finbuddy-fresh.vercel.app';
+  // FOR PRODUCTION: Replace this with your actual Vercel URL
+  // TODO: Update this with your real Vercel deployment URL
+  const VERCEL_URL = 'https://finbuddy-fresh-9mom.vercel.app';
   console.log('Using production API URL:', VERCEL_URL);
   return VERCEL_URL;
 };
@@ -47,7 +47,7 @@ export const trpcClient = createTRPCClient<AppRouter>({
       url: baseUrl ? `${baseUrl}/api/trpc` : 'https://api.placeholder.com/api/trpc',
       fetch: async (url, options) => {
         // In production with Vercel, make normal API calls
-        if (baseUrl && !baseUrl.includes('placeholder')) {
+        if (baseUrl && !baseUrl.includes('placeholder') && !baseUrl.includes('your-vercel-url-here')) {
           try {
             const response = await fetch(url, options);
             return response;
