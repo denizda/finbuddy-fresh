@@ -222,13 +222,41 @@ export const portfolioRouter = createTRPCRouter({
   getRealtimePrices: publicProcedure
     .input(z.object({ symbols: z.array(z.string()) }))
     .query(async ({ input }: { input: any }) => {
-      const prices = {} as Record<string, number | null>;
+      const prices = {} as Record<string, { 
+        currentPrice: number | null;
+        change: number | null;
+        changePercent: number | null;
+      }>;
+      
       await Promise.all(
         input.symbols.map(async (symbol: any) => {
           try {
-            prices[symbol] = await getRealtimePrice(symbol);
+            const price = await getRealtimePrice(symbol);
+            if (price !== null) {
+              // For demo purposes, calculate a mock daily change
+              // In production, you'd fetch the previous day's close price
+              const mockPreviousClose = price * (1 - (Math.random() * 0.1 - 0.05)); // ±5% random change
+              const change = price - mockPreviousClose;
+              const changePercent = (change / mockPreviousClose) * 100;
+              
+              prices[symbol] = {
+                currentPrice: price,
+                change: change,
+                changePercent: changePercent
+              };
+            } else {
+              prices[symbol] = {
+                currentPrice: null,
+                change: null,
+                changePercent: null
+              };
+            }
           } catch (e) {
-            prices[symbol] = null;
+            prices[symbol] = {
+              currentPrice: null,
+              change: null,
+              changePercent: null
+            };
           }
         })
       );

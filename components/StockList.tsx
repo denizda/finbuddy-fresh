@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, Pressable, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
@@ -15,6 +15,7 @@ interface PortfolioItem {
   currentTotalValue: number;
   symbol: string;
   name: string;
+  realtimePrice?: number;
 }
 
 export default function StockList() {
@@ -26,31 +27,52 @@ export default function StockList() {
 
   if (!user?.id) return null; // or a loading spinner
 
-  const { data, isLoading, error } = trpc.useQuery([
+  const { data, isLoading, error, refetch } = trpc.useQuery([
     'portfolio.getPortfolio',
     { userId: user.id }
   ], {
-    enabled: true
+    enabled: true,
+    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   });
 
   const portfolioItems: PortfolioItem[] = data?.portfolioItems || []; // Explicitly type the fetched data
   const totalPortfolioValue = data?.summary.totalValue || 0;
 
-  const renderStockItem = ({ item }: { item: PortfolioItem }) => {
-    // Assuming current_total_value is the current market value of the holding
-    // and quantity is the number of shares.
-    // price, change, and changePercentage would typically come from a real-time stock API.
-    const price = item.quantity > 0 ? item.currentTotalValue / item.quantity : 0;
-    const change = 0; // Placeholder: Fetch from real-time API
-    const changePercentage = 0; // Placeholder: Fetch from real-time API
-    const portfolioPercentage = totalPortfolioValue > 0 ? (item.currentTotalValue / totalPortfolioValue) * 100 : 0;
+  // Get real-time prices for all stocks
+  const symbols = portfolioItems.map(item => item.symbol);
+  const { data: realtimePrices, isLoading: isPricesLoading } = trpc.useQuery([
+    'portfolio.getRealtimePrices',
+    { symbols }
+  ], {
+    enabled: symbols.length > 0,
+    refetchInterval: 30000, // Refetch every 30 seconds
+  });
 
-    const isPositive = change >= 0;
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetch();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [refetch]);
+
+  const renderStockItem = ({ item }: { item: PortfolioItem }) => {
+    // Get real-time price data
+    const priceData = realtimePrices?.[item.symbol];
+    const currentPrice = priceData?.currentPrice || item.realtimePrice || 0;
+    const dailyChange = priceData?.change || 0;
+    const dailyChangePercent = priceData?.changePercent || 0;
+    
+    // Calculate portfolio percentage
+    const currentValue = currentPrice * item.quantity;
+    const portfolioPercentage = totalPortfolioValue > 0 ? (currentValue / totalPortfolioValue) * 100 : 0;
+
+    const isPositive = dailyChange >= 0;
 
     return (
       <Pressable
         style={styles.stockItem}
-        // Assuming 'id' from portfolio item can be used for navigation
         onPress={() => router.push(`/key-data?id=${item.id}`)}
       >
         <View style={styles.stockInfo}>
@@ -60,14 +82,19 @@ export default function StockList() {
           <View style={styles.stockDetails}>
             <Text style={styles.stockSymbol}>{item.symbol}</Text>
             <Text style={styles.stockName}>{item.name}</Text>
-            <Text style={styles.stockShares}>{item.quantity} shares • {portfolioPercentage.toFixed(1)}% of portfolio</Text>
+            <Text style={styles.stockShares}>
+              {item.quantity} shares • {portfolioPercentage.toFixed(1)}% of portfolio
+            </Text>
           </View>
         </View>
         
         <View style={styles.stockRightSection}>
           <View style={styles.stockPriceContainer}>
-            <Text style={styles.stockPrice}>${price.toFixed(2)}</Text>
-            <Text style={styles.stockValue}>${item.currentTotalValue.toFixed(2)}</Text>
+            <Text style={styles.stockPrice}>
+              ${currentPrice > 0 ? currentPrice.toFixed(2) : 'N/A'}
+              {isPricesLoading && <Text style={styles.loadingIndicator}> ⟳</Text>}
+            </Text>
+            <Text style={styles.stockValue}>${currentValue.toFixed(2)}</Text>
             <View style={styles.stockChangeContainer}>
               {isPositive ? (
                 <Icon name="arrow-up-right" size={12} color={Colors.secondary} />
@@ -80,7 +107,7 @@ export default function StockList() {
                   { color: isPositive ? Colors.secondary : Colors.negative }
                 ]}
               >
-                {isPositive ? '+' : ''}{changePercentage.toFixed(2)}%
+                {isPositive ? '+' : ''}{dailyChangePercent.toFixed(2)}%
               </Text>
             </View>
           </View>
@@ -88,7 +115,10 @@ export default function StockList() {
             style={styles.tradeButton}
             onPress={(e) => {
               e.stopPropagation();
-              setSelectedStock(item);
+              setSelectedStock({
+                ...item,
+                realtimePrice: currentPrice
+              });
               setShowTradingModal(true);
             }}
           >
@@ -329,5 +359,9 @@ const styles = StyleSheet.create({
     color: Colors.background,
     fontSize: Theme.typography.sizes.xs,
     fontWeight: Theme.typography.weights.medium as any,
+  },
+  loadingIndicator: {
+    fontSize: Theme.typography.sizes.xs,
+    color: Colors.secondaryText,
   },
 });
