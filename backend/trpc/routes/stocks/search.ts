@@ -4,6 +4,28 @@ import fetch from 'node-fetch';
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
+// Finnhub API response interfaces
+interface FinnhubSearchResult {
+  count: number;
+  result: Array<{
+    description: string;
+    displaySymbol: string;
+    symbol: string;
+    type: string;
+  }>;
+}
+
+interface FinnhubQuoteResponse {
+  c: number; // Current price
+  d: number; // Change
+  dp: number; // Percent change
+  h: number; // High price of the day
+  l: number; // Low price of the day
+  o: number; // Open price of the day
+  pc: number; // Previous close price
+  t: number; // Timestamp
+}
+
 export const stocksRouter = createTRPCRouter({
   searchStocks: publicProcedure
     .input(z.object({ query: z.string().min(1) }))
@@ -22,17 +44,17 @@ export const stocksRouter = createTRPCRouter({
           throw new Error(`Finnhub API error: ${response.status}`);
         }
         
-        const data = await response.json() as any;
+        const data = await response.json() as FinnhubSearchResult;
         
         // Get quotes for the top results
-        const symbols = data.result.slice(0, 10).map((item: any) => item.symbol);
+        const symbols = data.result.slice(0, 10).map((item) => item.symbol);
         const quotes = await Promise.all(
           symbols.map(async (symbol: string) => {
             try {
               const quoteResponse = await fetch(
                 `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
               );
-              const quoteData = await quoteResponse.json() as any;
+              const quoteData = await quoteResponse.json() as FinnhubQuoteResponse;
               return { symbol, ...quoteData };
             } catch {
               return null;
@@ -41,7 +63,7 @@ export const stocksRouter = createTRPCRouter({
         );
         
         // Combine search results with quotes
-        const results = data.result.slice(0, 10).map((item: any, index: number) => {
+        const results = data.result.slice(0, 10).map((item, index) => {
           const quote = quotes[index];
           return {
             symbol: item.symbol,
@@ -51,7 +73,7 @@ export const stocksRouter = createTRPCRouter({
             change: quote?.d || 0,
             changePercent: quote?.dp || 0,
           };
-        }).filter((item: any) => item.price > 0); // Only show stocks with valid prices
+        }).filter((item) => item.price > 0); // Only show stocks with valid prices
         
         return results;
       } catch (error) {
@@ -76,7 +98,7 @@ export const stocksRouter = createTRPCRouter({
           throw new Error(`Finnhub API error: ${response.status}`);
         }
         
-        const data = await response.json() as any;
+        const data = await response.json() as FinnhubQuoteResponse;
         
         return {
           symbol: input.symbol,

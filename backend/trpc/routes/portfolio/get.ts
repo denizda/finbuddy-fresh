@@ -30,6 +30,18 @@ export interface ProcessedPortfolioItem {
   realtimePrice?: number;
 }
 
+// Finnhub API response interface
+interface FinnhubQuoteResponse {
+  c: number; // Current price
+  d: number; // Change
+  dp: number; // Percent change
+  h: number; // High price of the day
+  l: number; // Low price of the day
+  o: number; // Open price of the day
+  pc: number; // Previous close price
+  t: number; // Timestamp
+}
+
 // Load environment variables
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
@@ -47,9 +59,9 @@ async function getRealtimePrice(symbol: string, retries = 3, delay = 1000): Prom
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const data = await response.json();
+      const data = await response.json() as FinnhubQuoteResponse;
       
-      if (!data || data.c === undefined) {
+      if (!data || typeof data.c !== 'number') {
         throw new Error('Invalid response format from Finnhub API');
       }
       
