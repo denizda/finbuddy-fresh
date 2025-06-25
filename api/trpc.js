@@ -1,5 +1,3 @@
-const { fetchRequestHandler } = require('@trpc/server/adapters/fetch');
-
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -21,6 +19,7 @@ export default async function handler(req, res) {
 
   try {
     // Dynamically import ES modules
+    const { fetchRequestHandler } = await import('@trpc/server/adapters/fetch');
     const { appRouter } = await import('../backend/trpc/app-router.js');
     const { supabase } = await import('../lib/supabase-backend.js');
     

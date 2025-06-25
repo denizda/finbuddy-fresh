@@ -21,7 +21,6 @@
     "@trpc/client": "^10.45.2",
     "@trpc/react-query": "^10.45.2",
     "@trpc/server": "^10.45.2",
-    "@vercel/node": "^3.4.2",
     "dotenv": "^16.4.7",
     "expo": "~53.0.12",
     "expo-dev-client": "~5.2.1",
