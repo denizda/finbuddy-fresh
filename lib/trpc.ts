@@ -15,7 +15,7 @@ const getBaseUrl = () => {
     return 'http://localhost:3000';
   }
   
-  // In production, use environment variable if available
+  // In production, use environment variable or hardcoded Vercel URL
   if (process.env.EXPO_PUBLIC_API_URL) {
     return process.env.EXPO_PUBLIC_API_URL;
   }
@@ -25,9 +25,11 @@ const getBaseUrl = () => {
     return ''; // Use relative URL for web
   }
   
-  // For production native apps - return null to disable backend calls
-  console.warn('No production API URL configured. App will run in offline mode.');
-  return null;
+  // For production native apps - USE YOUR VERCEL URL HERE
+  // Replace this with your actual Vercel URL once deployed
+  const VERCEL_URL = 'https://finbuddy-fresh.vercel.app';
+  console.log('Using production API URL:', VERCEL_URL);
+  return VERCEL_URL;
 };
 
 // Helper to get the auth token
@@ -44,50 +46,51 @@ export const trpcClient = createTRPCClient<AppRouter>({
     httpBatchLink({
       url: baseUrl ? `${baseUrl}/api/trpc` : 'https://api.placeholder.com/api/trpc',
       fetch: async (url, options) => {
-        // If no backend URL configured, return mock success response
-        if (!baseUrl) {
-          console.log('Backend disabled - returning mock response');
-          return new Response(JSON.stringify({ 
-            result: { 
-              data: { 
-                portfolioItems: [], 
-                summary: { 
-                  totalValue: 0, 
-                  dailyChange: 0, 
-                  dailyChangePercentage: 0, 
-                  allocation: [] 
+        // In production with Vercel, make normal API calls
+        if (baseUrl && !baseUrl.includes('placeholder')) {
+          try {
+            const response = await fetch(url, options);
+            return response;
+          } catch (error) {
+            console.error('tRPC network error:', error);
+            // Fallback to mock response on network error
+            return new Response(JSON.stringify({ 
+              result: { 
+                data: { 
+                  portfolioItems: [], 
+                  summary: { 
+                    totalValue: 0, 
+                    dailyChange: 0, 
+                    dailyChangePercentage: 0, 
+                    allocation: [] 
+                  } 
                 } 
               } 
-            } 
-          }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          });
+            }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
         }
         
-        try {
-          const response = await fetch(url, options);
-          return response;
-        } catch (error) {
-          console.error('tRPC network error:', error);
-          // Return mock success response instead of failing
-          return new Response(JSON.stringify({ 
-            result: { 
-              data: { 
-                portfolioItems: [], 
-                summary: { 
-                  totalValue: 0, 
-                  dailyChange: 0, 
-                  dailyChangePercentage: 0, 
-                  allocation: [] 
-                } 
+        // If no backend URL configured, return mock success response
+        console.log('Backend disabled - returning mock response');
+        return new Response(JSON.stringify({ 
+          result: { 
+            data: { 
+              portfolioItems: [], 
+              summary: { 
+                totalValue: 0, 
+                dailyChange: 0, 
+                dailyChangePercentage: 0, 
+                allocation: [] 
               } 
             } 
-          }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
+          } 
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
       }
     }),
   ],
