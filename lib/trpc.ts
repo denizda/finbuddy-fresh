@@ -1,7 +1,7 @@
 import { createReactQueryHooks } from '@trpc/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { Platform } from "react-native";
-import type { AppRouter } from './trpc-app-router';
+import type { AppRouter } from '../backend/trpc/app-router';
 import { Config } from './config';
 import { Logger } from './logger';
 
