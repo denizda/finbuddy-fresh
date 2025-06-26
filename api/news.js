@@ -52,18 +52,49 @@ export default async function handler(req, res) {
       });
     }
 
-    // For now, just return success without database interaction to test the API
-    return res.status(200).json({ 
-      success: true, 
-      message: 'News API is working - database interaction temporarily disabled',
-      received: {
-        symbol: symbol,
+    // Check if news already exists to avoid duplicates
+    const { data: existingNews } = await supabase
+      .from('stock_news')
+      .select('id')
+      .eq('symbol', symbol.toUpperCase())
+      .eq('title', title)
+      .single();
+
+    if (existingNews) {
+      return res.status(200).json({ 
+        success: true, 
+        message: 'News already exists',
+        duplicate: true 
+      });
+    }
+
+    // Insert new news
+    const { data, error } = await supabase
+      .from('stock_news')
+      .insert({
+        symbol: symbol.toUpperCase(),
         title: title,
         link: link,
-        summary: summary,
-        publishedAt: publishedAt,
-        source: source
-      }
+        summary: summary || null,
+        published_at: new Date(publishedAt).toISOString(),
+        source: source || 'n8n',
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return res.status(500).json({ 
+        error: 'Failed to save news to database',
+        details: error.message 
+      });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'News saved successfully',
+      data: data 
     });
 
   } catch (error) {
