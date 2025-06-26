@@ -66,6 +66,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="news"
+        options={{
+          title: 'News',
+          tabBarIcon: ({ color }) => <Feather name="file-text" size={22} color={color} />,
+          headerTitle: 'Latest Stock News',
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',

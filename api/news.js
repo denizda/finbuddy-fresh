@@ -20,7 +20,34 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  // Only allow POST requests
+  // Handle GET requests to fetch news
+  if (req.method === 'GET') {
+    try {
+      const { data, error } = await supabase
+        .from('stock_news')
+        .select('*')
+        .order('published_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Supabase error:', error);
+        return res.status(500).json({ 
+          error: 'Failed to fetch news from database',
+          details: error.message 
+        });
+      }
+
+      return res.status(200).json(data || []);
+    } catch (error) {
+      console.error('API error:', error);
+      return res.status(500).json({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
+    }
+  }
+
+  // Only allow POST requests for saving news
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
