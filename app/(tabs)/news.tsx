@@ -23,6 +23,7 @@ interface NewsItem {
   published_at: string;
   source: string;
   created_at: string;
+  sentiment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 }
 
 export default function NewsScreen() {
@@ -118,37 +119,75 @@ export default function NewsScreen() {
     }
   };
 
-  const renderNewsItem = ({ item }: { item: NewsItem }) => (
-    <TouchableOpacity
-      style={styles.newsItem}
-      onPress={() => handleNewsPress(item.link)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.newsHeader}>
-        <View style={styles.symbolContainer}>
-          <Text style={styles.symbolText}>{item.symbol}</Text>
+  const getSentimentStyle = (sentiment?: string) => {
+    switch (sentiment) {
+      case 'BULLISH':
+        return {
+          color: '#22c55e', // green
+          icon: 'trending-up',
+          backgroundColor: '#22c55e20',
+        };
+      case 'BEARISH':
+        return {
+          color: '#ef4444', // red
+          icon: 'trending-down',
+          backgroundColor: '#ef444420',
+        };
+      case 'NEUTRAL':
+      default:
+        return {
+          color: '#6b7280', // gray
+          icon: 'minus',
+          backgroundColor: '#6b728020',
+        };
+    }
+  };
+
+  const renderNewsItem = ({ item }: { item: NewsItem }) => {
+    const sentimentStyle = getSentimentStyle(item.sentiment);
+    
+    return (
+      <TouchableOpacity
+        style={styles.newsItem}
+        onPress={() => handleNewsPress(item.link)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.newsHeader}>
+          <View style={styles.newsHeaderLeft}>
+            <View style={styles.symbolContainer}>
+              <Text style={styles.symbolText}>{item.symbol}</Text>
+            </View>
+            {item.sentiment && (
+              <View style={[styles.sentimentContainer, { backgroundColor: sentimentStyle.backgroundColor }]}>
+                <Icon name={sentimentStyle.icon} size={12} color={sentimentStyle.color} />
+                <Text style={[styles.sentimentText, { color: sentimentStyle.color }]}>
+                  {item.sentiment}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.newsTime}>
+            {formatDate(item.published_at)}
+          </Text>
         </View>
-        <Text style={styles.newsTime}>
-          {formatDate(item.published_at)}
+        
+        <Text style={styles.newsTitle} numberOfLines={2}>
+          {item.title}
         </Text>
-      </View>
-      
-      <Text style={styles.newsTitle} numberOfLines={2}>
-        {item.title}
-      </Text>
-      
-      {item.summary && (
-        <Text style={styles.newsSummary} numberOfLines={3}>
-          {item.summary}
-        </Text>
-      )}
-      
-      <View style={styles.newsFooter}>
-        <Text style={styles.newsSource}>{item.source}</Text>
-        <Icon name="external-link" size={14} color={Colors.primary} />
-      </View>
-    </TouchableOpacity>
-  );
+        
+        {item.summary && (
+          <Text style={styles.newsSummary} numberOfLines={3}>
+            {item.summary}
+          </Text>
+        )}
+        
+        <View style={styles.newsFooter}>
+          <Text style={styles.newsSource}>{item.source}</Text>
+          <Icon name="external-link" size={14} color={Colors.primary} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -305,6 +344,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  newsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   symbolContainer: {
     backgroundColor: Colors.primary,
     paddingHorizontal: 8,
@@ -315,6 +359,19 @@ const styles = StyleSheet.create({
     color: Colors.background,
     fontSize: 12,
     fontWeight: '600',
+  },
+  sentimentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    gap: 4,
+  },
+  sentimentText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   newsTime: {
     fontSize: 12,

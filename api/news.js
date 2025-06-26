@@ -75,19 +75,39 @@ export default async function handler(req, res) {
     console.log('Request headers:', req.headers);
     console.log('Content-Type:', req.headers['content-type']);
     
-    const { symbol, title, link, summary, publishedAt, source } = req.body;
+    const { symbol, title, link, summary, publishedAt, source, sentiment } = req.body;
 
     // Debug: Log extracted values
-    console.log('Extracted values:', { symbol, title, link, summary, publishedAt, source });
+    console.log('Extracted values:', { symbol, title, link, summary, publishedAt, source, sentiment });
 
     // Validate required fields
     if (!symbol || !title || !link || !publishedAt) {
       return res.status(400).json({ 
         error: 'Missing required fields: symbol, title, link, publishedAt',
         received: req.body,
-        extractedValues: { symbol, title, link, summary, publishedAt, source }
+        extractedValues: { symbol, title, link, summary, publishedAt, source, sentiment }
       });
     }
+
+    // Validate sentiment if provided
+    const validSentiments = ['BULLISH', 'BEARISH', 'NEUTRAL'];
+    let finalSentiment = 'NEUTRAL'; // Default value
+    
+    if (sentiment && typeof sentiment === 'string') {
+      const upperSentiment = sentiment.toUpperCase().trim();
+      if (validSentiments.includes(upperSentiment)) {
+        finalSentiment = upperSentiment;
+      }
+    }
+    
+    // Debug sentiment processing
+    console.log('Sentiment processing:', {
+      received: sentiment,
+      receivedType: typeof sentiment,
+      upperCase: sentiment ? sentiment.toUpperCase().trim() : null,
+      isValid: sentiment && validSentiments.includes(sentiment.toUpperCase().trim()),
+      final: finalSentiment
+    });
 
     // Check if news already exists to avoid duplicates
     const { data: existingNews } = await supabase
@@ -106,17 +126,22 @@ export default async function handler(req, res) {
     }
 
     // Insert new news
+    const insertData = {
+      symbol: symbol.toUpperCase(),
+      title: title,
+      link: link,
+      summary: summary || null,
+      published_at: new Date(publishedAt).toISOString(),
+      source: source || 'n8n',
+      sentiment: finalSentiment,
+      created_at: new Date().toISOString(),
+    };
+    
+    console.log('About to insert into database:', insertData);
+    
     const { data, error } = await supabase
       .from('stock_news')
-      .insert({
-        symbol: symbol.toUpperCase(),
-        title: title,
-        link: link,
-        summary: summary || null,
-        published_at: new Date(publishedAt).toISOString(),
-        source: source || 'n8n',
-        created_at: new Date().toISOString(),
-      })
+      .insert(insertData)
       .select()
       .single();
 

@@ -1,0 +1,193 @@
+{
+  "name": "ChatGPT Sentiment Analysis for Stock News",
+  "version": 1,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Fetch News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        460,
+        300
+      ],
+      "id": "fetch-news"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter news items that don't have sentiment or have NEUTRAL sentiment\nconst newsItems = $input.all()[0].json;\n\nif (!Array.isArray(newsItems)) {\n  console.log('No news items found or invalid format');\n  return [];\n}\n\nconst itemsNeedingSentiment = newsItems.filter(item => {\n  return !item.sentiment || item.sentiment === 'NEUTRAL' || item.sentiment === null;\n});\n\nconsole.log(`Found ${itemsNeedingSentiment.length} news items needing sentiment analysis`);\n\n// Take only the first 10 to avoid overwhelming ChatGPT\nconst limitedItems = itemsNeedingSentiment.slice(0, 10);\n\nreturn limitedItems.map(item => ({ json: item }));"
+      },
+      "name": "Filter Items Needing Sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "id": "filter-items"
+    },
+    {
+      "parameters": {
+        "model": "gpt-4",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 2000
+        },
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a financial sentiment analysis expert. Analyze the provided stock news and determine if each news item is BULLISH, BEARISH, or NEUTRAL for the stock price.\n\nFor each news item, consider:\n- Financial impact on the company\n- Market sentiment implications\n- Revenue/profit potential\n- Competitive position\n- Regulatory or legal implications\n- Market conditions\n\nClassification rules:\n- BULLISH: News likely to drive stock price UP (earnings beat, product launch, positive guidance, partnerships, acquisitions, market expansion, etc.)\n- BEARISH: News likely to drive stock price DOWN (earnings miss, layoffs, lawsuits, regulatory issues, downgrades, market share loss, etc.)\n- NEUTRAL: News with unclear or minimal stock price impact (general updates, neutral announcements, mixed signals, administrative changes, etc.)\n\nReturn ONLY a JSON array with the sentiment analysis:\n[\n  {\n    \"id\": \"original_news_id\",\n    \"sentiment\": \"BULLISH|BEARISH|NEUTRAL\",\n    \"confidence\": \"high|medium|low\",\n    \"reasoning\": \"Brief explanation of sentiment decision\"\n  }\n]"
+            },
+            {
+              "role": "user",
+              "content": "=Analyze the sentiment for these stock news items:\n\n{{ $json.map(item => `ID: ${item.id}\nSymbol: ${item.symbol}\nTitle: ${item.title}\nSummary: ${item.summary || 'No summary'}\n---`).join('\\n') }}"
+            }
+          ]
+        }
+      },
+      "name": "ChatGPT Sentiment Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "id": "chatgpt-sentiment"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ChatGPT sentiment analysis response\nconst chatgptResponse = $input.all()[0].json.message?.content || '';\nconst originalNewsItems = $input.all()[1].json;\n\nconsole.log('=== CHATGPT SENTIMENT ANALYSIS ===');\nconsole.log('Response length:', chatgptResponse.length);\nconsole.log('Response preview:', chatgptResponse.substring(0, 500));\n\ntry {\n  // Extract JSON from ChatGPT response\n  let jsonContent = chatgptResponse.trim();\n  \n  // Clean up ChatGPT formatting\n  jsonContent = jsonContent\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  console.log('Cleaned JSON content:', jsonContent.substring(0, 300));\n  \n  // Parse sentiment analysis\n  let sentimentAnalysis = [];\n  try {\n    sentimentAnalysis = JSON.parse(jsonContent);\n  } catch (parseError) {\n    console.log('Primary parse failed, attempting array extraction');\n    const arrayMatch = jsonContent.match(/\\[([\\s\\S]*?)\\]/);\n    if (arrayMatch) {\n      sentimentAnalysis = JSON.parse(arrayMatch[0]);\n    }\n  }\n  \n  if (!Array.isArray(sentimentAnalysis)) {\n    sentimentAnalysis = sentimentAnalysis ? [sentimentAnalysis] : [];\n  }\n  \n  console.log(`Parsed ${sentimentAnalysis.length} sentiment analyses`);\n  \n  // Create update items for each analyzed news\n  const updateItems = [];\n  \n  for (const analysis of sentimentAnalysis) {\n    if (!analysis.id || !analysis.sentiment) {\n      console.log('Skipping invalid analysis:', analysis);\n      continue;\n    }\n    \n    // Validate sentiment\n    const validSentiments = ['BULLISH', 'BEARISH', 'NEUTRAL'];\n    const sentiment = validSentiments.includes(analysis.sentiment.toUpperCase()) \n      ? analysis.sentiment.toUpperCase() \n      : 'NEUTRAL';\n    \n    // Find the original news item\n    const originalItem = Array.isArray(originalNewsItems) \n      ? originalNewsItems.find(item => item.id === analysis.id)\n      : originalNewsItems.id === analysis.id ? originalNewsItems : null;\n    \n    if (!originalItem) {\n      console.log('Could not find original news item for ID:', analysis.id);\n      continue;\n    }\n    \n    // Create update payload\n    const updateItem = {\n      id: analysis.id,\n      symbol: originalItem.symbol,\n      title: originalItem.title,\n      link: originalItem.link,\n      summary: originalItem.summary,\n      publishedAt: originalItem.published_at,\n      source: `${originalItem.source} [AI-analyzed]`,\n      sentiment: sentiment,\n      confidence: analysis.confidence || 'medium',\n      reasoning: analysis.reasoning || 'Automated sentiment analysis'\n    };\n    \n    updateItems.push(updateItem);\n    console.log(`Prepared update for ${originalItem.symbol}: ${sentiment}`);\n  }\n  \n  console.log(`=== SENTIMENT PROCESSING COMPLETE ===`);\n  console.log(`Items to update: ${updateItems.length}`);\n  \n  if (updateItems.length === 0) {\n    console.log('No valid sentiment analyses to process');\n    return [{\n      json: {\n        message: 'No sentiment analyses processed',\n        processedCount: 0,\n        rawResponse: chatgptResponse.substring(0, 500)\n      }\n    }];\n  }\n  \n  return updateItems.map(item => ({ json: item }));\n  \n} catch (error) {\n  console.error('=== SENTIMENT PROCESSING ERROR ===');\n  console.error('Error:', error.message);\n  console.error('Raw response:', chatgptResponse.substring(0, 1000));\n  \n  return [{\n    json: {\n      error: 'Sentiment processing failed',\n      message: error.message,\n      rawResponse: chatgptResponse.substring(0, 500)\n    }\n  }];\n}"
+      },
+      "name": "Process Sentiment Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ],
+      "id": "process-sentiment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source,\n  \"sentiment\": $json.sentiment\n} }}"
+      },
+      "name": "Update News with Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1340,
+        300
+      ],
+      "id": "update-news"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch News": {
+      "main": [
+        [
+          {
+            "node": "Filter Items Needing Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Items Needing Sentiment": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Sentiment Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Sentiment Analysis": {
+      "main": [
+        [
+          {
+            "node": "Process Sentiment Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Sentiment Results": {
+      "main": [
+        [
+          {
+            "node": "Update News with Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-15T10:30:00.000Z",
+  "versionId": "1"
+} 
