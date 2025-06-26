@@ -93,6 +93,7 @@
     },
     {
       "parameters": {
+        "method": "POST",
         "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
         "sendHeaders": true,
         "headerParameters": {
