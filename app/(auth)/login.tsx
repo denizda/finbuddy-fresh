@@ -19,8 +19,8 @@ import Theme from '@/constants/theme';
 import { useAuthStore } from '@/stores/auth-store';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('denizdaghan@gmail.com');
-  const [password, setPassword] = useState('231744');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
   

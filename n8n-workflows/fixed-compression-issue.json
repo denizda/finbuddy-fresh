@@ -1,0 +1,115 @@
+{
+  "name": "Fixed - No Compression Issues",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://finance.yahoo.com/quote/AAPL/news/",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "identity",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+          },
+          "timeout": 30000,
+          "followRedirect": true,
+          "ignoreHttpsCertificates": false
+        }
+      },
+      "name": "Get AAPL News - Fixed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "get-aapl-news-fixed"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "headlines",
+              "cssSelector": "[data-module='Stream'] h3, .js-content-viewer h3, h3[class*='title']",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "[data-module='Stream'] a, .js-content-viewer a, a[href*='/news/']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "descriptions",
+              "cssSelector": "[data-module='Stream'] p, .js-content-viewer p, p[class*='summary']",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract Headlines - Better",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "extract-headlines-better"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug and process the extracted data\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst descriptions = $json.descriptions || [];\n\nconsole.log('Headlines found:', headlines.length);\nconsole.log('Links found:', links.length);\nconsole.log('First few headlines:', headlines.slice(0, 3));\n\nconst results = [];\nfor (let i = 0; i < Math.min(headlines.length, 5); i++) {\n  if (headlines[i] && headlines[i].trim() && headlines[i].length > 10) {\n    let fullLink = links[i] || '';\n    if (fullLink && !fullLink.startsWith('http')) {\n      fullLink = 'https://finance.yahoo.com' + fullLink;\n    }\n    \n    results.push({\n      symbol: 'AAPL',\n      title: headlines[i].trim(),\n      link: fullLink,\n      summary: descriptions[i] ? descriptions[i].trim().substring(0, 200) : '',\n      found_at: new Date().toISOString(),\n      source: 'yahoo-finance'\n    });\n  }\n}\n\nconsole.log('Final results:', results.length);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Process & Debug",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "process-debug"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get AAPL News - Fixed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get AAPL News - Fixed": {
+      "main": [
+        [
+          {
+            "node": "Extract Headlines - Better",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Headlines - Better": {
+      "main": [
+        [
+          {
+            "node": "Process & Debug",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

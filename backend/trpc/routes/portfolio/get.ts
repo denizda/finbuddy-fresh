@@ -1,6 +1,5 @@
 import { publicProcedure, createTRPCRouter } from '../../create-context';
 import { z } from 'zod';
-import fetch from 'node-fetch';
 
 // Define TypeScript interfaces for our data model
 interface Company {

@@ -1,7 +1,7 @@
 import Purchases, { LOG_LEVEL, CustomerInfo, PurchasesPackage, PurchasesOffering } from 'react-native-purchases';
 
 const API_KEYS = {
-  apple: 'appl_yourapikeyhere', // Replace with your RevenueCat Apple API key
+  apple: process.env.EXPO_PUBLIC_REVENUECAT_API_KEY || 'your-api-key-here', // Use environment variable
 };
 
 export const initializeRevenueCat = async () => {
@@ -16,7 +16,9 @@ export const initializeRevenueCat = async () => {
       appUserID: null, // Anonymously generated user ID is used by default
     });
     
-    console.log('RevenueCat initialized');
+    if (__DEV__) {
+      console.log('RevenueCat initialized');
+    }
   } catch (error) {
     console.error('Error initializing RevenueCat:', error);
   }

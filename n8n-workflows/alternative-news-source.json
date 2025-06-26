@@ -1,0 +1,112 @@
+{
+  "name": "Alternative - MarketWatch News",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.marketwatch.com/investing/stock/aapl",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache"
+          },
+          "timeout": 20000
+        }
+      },
+      "name": "Get MarketWatch AAPL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "get-marketwatch"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "headlines",
+              "cssSelector": ".article-wrap h3, .headline a, [data-module='ArticleTeaser'] h3",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": ".article-wrap a, .headline a, [data-module='ArticleTeaser'] a",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "summaries",
+              "cssSelector": ".article-wrap p, .summary, [data-module='ArticleTeaser'] p",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract MarketWatch News",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "extract-marketwatch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process MarketWatch data\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst summaries = $json.summaries || [];\n\nconsole.log('MarketWatch Headlines found:', headlines.length);\nconsole.log('Sample headlines:', headlines.slice(0, 3));\n\nconst results = [];\nfor (let i = 0; i < Math.min(headlines.length, 5); i++) {\n  if (headlines[i] && headlines[i].trim().length > 5) {\n    let fullLink = links[i] || '';\n    if (fullLink && !fullLink.startsWith('http')) {\n      fullLink = 'https://www.marketwatch.com' + fullLink;\n    }\n    \n    results.push({\n      symbol: 'AAPL',\n      title: headlines[i].trim(),\n      link: fullLink,\n      summary: summaries[i] ? summaries[i].trim().substring(0, 200) : '',\n      found_at: new Date().toISOString(),\n      source: 'marketwatch'\n    });\n  }\n}\n\nconsole.log('MarketWatch results:', results.length);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Process MarketWatch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "process-marketwatch"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get MarketWatch AAPL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get MarketWatch AAPL": {
+      "main": [
+        [
+          {
+            "node": "Extract MarketWatch News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract MarketWatch News": {
+      "main": [
+        [
+          {
+            "node": "Process MarketWatch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

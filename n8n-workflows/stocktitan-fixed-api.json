@@ -1,0 +1,158 @@
+{
+  "name": "StockTitan - Fixed API Call",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://www.stocktitan.net/news/AAPL/",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache"
+          },
+          "timeout": 25000
+        }
+      },
+      "name": "Get AAPL News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "get-aapl-news"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "headlines",
+              "cssSelector": "h2, h3, .headline",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "a[href*='/news/']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "summaries",
+              "cssSelector": ".rhea-ai-summary, .summary",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract News",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "extract-news"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process news and create individual items\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst summaries = $json.summaries || [];\n\n// Filter real news headlines\nconst realNews = headlines.filter(headline => \n  headline && \n  headline.trim().length > 20 && \n  !headline.toLowerCase().includes('login') &&\n  !headline.toLowerCase().includes('sign up') &&\n  !headline.toLowerCase().includes('stock titan')\n);\n\nconsole.log(`Found ${realNews.length} real news items`);\n\n// Create news items\nconst results = [];\nfor (let i = 0; i < Math.min(realNews.length, 3); i++) {\n  const headline = realNews[i].trim();\n  \n  let newsLink = '';\n  if (links[i] && links[i].trim()) {\n    newsLink = links[i].startsWith('http') ? links[i] : `https://www.stocktitan.net${links[i]}`;\n  }\n  \n  let summary = '';\n  if (summaries[i] && summaries[i].trim().length > 20) {\n    summary = summaries[i].trim().substring(0, 300);\n  }\n  \n  results.push({\n    symbol: 'AAPL',\n    title: headline,\n    link: newsLink,\n    summary: summary,\n    publishedAt: new Date().toISOString(),\n    source: 'stocktitan'\n  });\n}\n\nconsole.log(`Processed ${results.length} news items for API`);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Process News Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "process-news"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/trpc/stocks.saveNews",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept", 
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\n  \"symbol\": \"{{ $json.symbol }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"link\": \"{{ $json.link }}\",\n  \"summary\": \"{{ $json.summary }}\",\n  \"publishedAt\": \"{{ $json.publishedAt }}\",\n  \"source\": \"{{ $json.source }}\"\n}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "name": "Save to FinBuddy - Fixed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1120, 300],
+      "id": "save-to-finbuddy-fixed"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get AAPL News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get AAPL News": {
+      "main": [
+        [
+          {
+            "node": "Extract News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract News": {
+      "main": [
+        [
+          {
+            "node": "Process News Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process News Items": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy - Fixed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

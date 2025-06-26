@@ -1,0 +1,162 @@
+{
+  "name": "Stock News Scraper",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 15,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://finance.yahoo.com/quote/{{$node['Get Stock List'].json['symbol']}}/news",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+          }
+        }
+      },
+      "name": "Fetch News Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [640, 300]
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "title",
+              "cssSelector": "h3[data-module='NewsTitle'] a",
+              "returnValue": "text"
+            },
+            {
+              "key": "link",
+              "cssSelector": "h3[data-module='NewsTitle'] a",
+              "returnValue": "attribute",
+              "attribute": "href"
+            },
+            {
+              "key": "summary",
+              "cssSelector": "p[data-module='NewsSummary']",
+              "returnValue": "text"
+            },
+            {
+              "key": "time",
+              "cssSelector": "div[data-module='NewsTime']",
+              "returnValue": "text"
+            }
+          ]
+        }
+      },
+      "name": "Extract News Data",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [840, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/trpc/stocks.saveNews",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "={{$node['Get Stock List'].json['symbol']}}"
+            },
+            {
+              "name": "title",
+              "value": "={{$json['title']}}"
+            },
+            {
+              "name": "link",
+              "value": "={{$json['link']}}"
+            },
+            {
+              "name": "summary",
+              "value": "={{$json['summary']}}"
+            },
+            {
+              "name": "publishedAt",
+              "value": "={{$json['time']}}"
+            }
+          ]
+        }
+      },
+      "name": "Send to FinBuddy API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1040, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Stock List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stock List": {
+      "main": [
+        [
+          {
+            "node": "Fetch News Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch News Page": {
+      "main": [
+        [
+          {
+            "node": "Extract News Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract News Data": {
+      "main": [
+        [
+          {
+            "node": "Send to FinBuddy API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

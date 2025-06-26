@@ -1,0 +1,193 @@
+{
+  "name": "FinBuddy News Scraper - Fixed",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 15,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        240,
+        300
+      ],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of popular stocks to scrape news for\nconst stockSymbols = [\n  'AAPL',\n  'MSFT', \n  'GOOGL',\n  'AMZN',\n  'TSLA'\n];\n\n// Return each symbol as a separate item\nreturn stockSymbols.map(symbol => {\n  return {\n    json: {\n      symbol: symbol\n    }\n  };\n});"
+      },
+      "name": "Stock List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "id": "stock-list"
+    },
+    {
+      "parameters": {
+        "url": "=https://finance.yahoo.com/quote/{{$json.symbol}}/news/",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+          }
+        }
+      },
+      "name": "Get Yahoo News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        680,
+        300
+      ],
+      "id": "get-yahoo-news"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "headlines",
+              "cssSelector": "h3 a",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "h3 a",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "descriptions",
+              "cssSelector": "p",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract News",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "id": "extract-news"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the stock symbol from the original input\nconst symbol = $('Stock List').item(0).json.symbol;\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst descriptions = $json.descriptions || [];\n\n// Create news items\nconst newsItems = [];\nfor (let i = 0; i < Math.min(headlines.length, 3); i++) {\n  if (headlines[i] && headlines[i].trim()) {\n    let fullLink = links[i] || '';\n    if (fullLink && !fullLink.startsWith('http')) {\n      fullLink = 'https://finance.yahoo.com' + fullLink;\n    }\n    \n    newsItems.push({\n      symbol: symbol,\n      title: headlines[i].trim(),\n      link: fullLink,\n      summary: descriptions[i] ? descriptions[i].trim().substring(0, 300) : '',\n      publishedAt: new Date().toISOString(),\n      source: 'yahoo-finance'\n    });\n  }\n}\n\nreturn newsItems.map(item => ({ json: item }));"
+      },
+      "name": "Process News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        300
+      ],
+      "id": "process-news"
+    },
+    {
+      "parameters": {
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/trpc/stocks.saveNews",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\n  \"symbol\": \"{{$json.symbol}}\",\n  \"title\": \"{{$json.title}}\",\n  \"link\": \"{{$json.link}}\",\n  \"summary\": \"{{$json.summary}}\",\n  \"publishedAt\": \"{{$json.publishedAt}}\",\n  \"source\": \"{{$json.source}}\"\n}"
+      },
+      "name": "Save to FinBuddy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1340,
+        300
+      ],
+      "id": "save-to-finbuddy"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Stock List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock List": {
+      "main": [
+        [
+          {
+            "node": "Get Yahoo News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Yahoo News": {
+      "main": [
+        [
+          {
+            "node": "Extract News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract News": {
+      "main": [
+        [
+          {
+            "node": "Process News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process News": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {}
+} 
