@@ -1,5 +1,6 @@
 import { publicProcedure, createTRPCRouter } from '../../create-context';
 import { z } from 'zod';
+import fetch from 'node-fetch';
 import { newsRoute, getNewsRoute } from './news';
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
