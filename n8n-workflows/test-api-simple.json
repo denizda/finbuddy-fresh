@@ -1,0 +1,74 @@
+{
+  "name": "Test API - Simple",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create test data\nreturn [{\n  json: {\n    symbol: 'AAPL',\n    title: 'Test News Article',\n    link: 'https://example.com/test-news',\n    summary: 'This is a test news article to verify the API connection',\n    publishedAt: new Date().toISOString(),\n    source: 'test'\n  }\n}];"
+      },
+      "name": "Create Test Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "create-test-data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\n  \"symbol\": \"{{ $json.symbol }}\",\n  \"title\": \"{{ $json.title }}\",\n  \"link\": \"{{ $json.link }}\",\n  \"summary\": \"{{ $json.summary }}\",\n  \"publishedAt\": \"{{ $json.publishedAt }}\",\n  \"source\": \"{{ $json.source }}\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "name": "Test API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "id": "test-api-call"
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Data": {
+      "main": [
+        [
+          {
+            "node": "Test API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

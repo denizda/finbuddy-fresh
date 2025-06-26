@@ -43,12 +43,22 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Debug: Log what we're receiving
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
+    console.log('Content-Type:', req.headers['content-type']);
+    
     const { symbol, title, link, summary, publishedAt, source } = req.body;
+
+    // Debug: Log extracted values
+    console.log('Extracted values:', { symbol, title, link, summary, publishedAt, source });
 
     // Validate required fields
     if (!symbol || !title || !link || !publishedAt) {
       return res.status(400).json({ 
-        error: 'Missing required fields: symbol, title, link, publishedAt' 
+        error: 'Missing required fields: symbol, title, link, publishedAt',
+        received: req.body,
+        extractedValues: { symbol, title, link, summary, publishedAt, source }
       });
     }
 
