@@ -1,0 +1,176 @@
+{
+  "name": "StockTitan News - Final Working",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of popular stocks for StockTitan scraping\nconst stockSymbols = [\n  'AAPL',\n  'MSFT', \n  'GOOGL',\n  'AMZN',\n  'TSLA',\n  'META',\n  'NVDA'\n];\n\nreturn stockSymbols.map(symbol => {\n  return {\n    json: {\n      symbol: symbol,\n      url: `https://www.stocktitan.net/news/${symbol}/`\n    }\n  };\n});"
+      },
+      "name": "Stock URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "stock-urls"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          },
+          "timeout": 25000,
+          "followRedirect": true
+        }
+      },
+      "name": "Get StockTitan Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "id": "get-stocktitan"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "dates",
+              "cssSelector": "div:contains('PM'), div:contains('AM'), .date, [class*='date']",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "headlines",
+              "cssSelector": "h2, h3, .headline, [class*='title'], a[href*='/news/']",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "a[href*='/news/'], .news-link, [class*='link']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "summaries",
+              "cssSelector": ".summary, [class*='summary'], .rhea-ai-summary, p:contains('Summary')",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract StockTitan News",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "extract-stocktitan"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process StockTitan news data\nconst symbol = $json.symbol || 'UNKNOWN';\nconst dates = $json.dates || [];\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst summaries = $json.summaries || [];\n\nconsole.log(`Processing ${symbol}:`);\nconsole.log(`- Headlines found: ${headlines.length}`);\nconsole.log(`- Links found: ${links.length}`);\nconsole.log(`- Dates found: ${dates.length}`);\n\n// Filter out navigation/menu items and get real news\nconst realNews = headlines.filter(headline => \n  headline && \n  headline.trim().length > 20 && \n  !headline.toLowerCase().includes('login') &&\n  !headline.toLowerCase().includes('sign up') &&\n  !headline.toLowerCase().includes('news feed') &&\n  !headline.toLowerCase().includes('stock titan')\n);\n\nconsole.log(`- Real news items: ${realNews.length}`);\n\nconst results = [];\nfor (let i = 0; i < Math.min(realNews.length, 5); i++) {\n  const headline = realNews[i].trim();\n  \n  // Find corresponding link\n  let newsLink = '';\n  if (links[i] && links[i].trim()) {\n    newsLink = links[i].startsWith('http') ? links[i] : `https://www.stocktitan.net${links[i]}`;\n  }\n  \n  // Find corresponding date\n  let publishDate = new Date().toISOString();\n  if (dates[i] && dates[i].includes('/')) {\n    try {\n      publishDate = new Date(dates[i]).toISOString();\n    } catch (e) {\n      publishDate = new Date().toISOString();\n    }\n  }\n  \n  // Find corresponding summary\n  let summary = '';\n  if (summaries[i] && summaries[i].trim().length > 20) {\n    summary = summaries[i].trim().substring(0, 300);\n  }\n  \n  results.push({\n    symbol: symbol,\n    title: headline,\n    link: newsLink,\n    summary: summary,\n    publishedAt: publishDate,\n    source: 'stocktitan'\n  });\n}\n\nconsole.log(`Final results for ${symbol}: ${results.length} items`);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Process StockTitan Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "process-stocktitan"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}",
+        "options": {}
+      },
+      "name": "Save to FinBuddy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 300],
+      "id": "save-to-finbuddy"
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Stock URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock URLs": {
+      "main": [
+        [
+          {
+            "node": "Get StockTitan Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get StockTitan Page": {
+      "main": [
+        [
+          {
+            "node": "Extract StockTitan News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract StockTitan News": {
+      "main": [
+        [
+          {
+            "node": "Process StockTitan Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process StockTitan Data": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

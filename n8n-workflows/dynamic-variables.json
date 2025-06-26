@@ -1,0 +1,81 @@
+{
+  "name": "Dynamic Variables Test",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "id": "manual-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Create test data with variables\nreturn [\n  {\n    json: {\n      symbol: 'AAPL',\n      title: 'Apple News Test',\n      link: 'https://example.com/apple',\n      summary: 'Test summary for Apple',\n      publishedAt: new Date().toISOString(),\n      source: 'test'\n    }\n  },\n  {\n    json: {\n      symbol: 'MSFT',\n      title: 'Microsoft News Test',\n      link: 'https://example.com/microsoft',\n      summary: 'Test summary for Microsoft',\n      publishedAt: new Date().toISOString(),\n      source: 'test'\n    }\n  }\n];"
+      },
+      "name": "Create Test Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "id": "create-data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}",
+        "options": {}
+      },
+      "name": "Send to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        300
+      ],
+      "id": "send-api"
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "Create Test Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Test Data": {
+      "main": [
+        [
+          {
+            "node": "Send to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 

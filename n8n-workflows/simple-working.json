@@ -1,0 +1,66 @@
+{
+  "name": "Simple Working API Test",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "When clicking \"Test workflow\"",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "id": "83c53aac-68c7-4cd5-8b6a-6c3b9c2b1a2c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "authentication": "none",
+        "requestMethod": "POST",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": {
+          "symbol": "AAPL",
+          "title": "Test News from N8N",
+          "link": "https://example.com/test",
+          "summary": "This is a test news article",
+          "publishedAt": "2025-01-13T12:00:00Z",
+          "source": "n8n-test"
+        },
+        "options": {}
+      },
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        300
+      ],
+      "id": "b4c94b44-0123-4567-8901-234567890123"
+    }
+  ],
+  "connections": {
+    "When clicking \"Test workflow\"": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+} 
