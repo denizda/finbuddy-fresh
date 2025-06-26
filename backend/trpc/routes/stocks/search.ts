@@ -1,7 +1,7 @@
 import { publicProcedure, createTRPCRouter } from '../../create-context';
 import { z } from 'zod';
 // import fetch from 'node-fetch'; // Temporarily commented to fix build
-import { newsRoute, getNewsRoute } from './news';
+// import { newsRoute, getNewsRoute } from './news'; // Temporarily commented to fix build
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 
@@ -117,7 +117,7 @@ export const stocksRouter = createTRPCRouter({
       }
     }),
     
-  // News routes
-  saveNews: newsRoute,
-  getNews: getNewsRoute,
+  // News routes - temporarily commented to fix build
+  // saveNews: newsRoute,
+  // getNews: getNewsRoute,
 }); 
