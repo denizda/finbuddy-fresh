@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
   console.error('Missing Supabase environment variables');
@@ -23,6 +23,23 @@ export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Debug environment variables
+  console.log('Environment check:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseServiceKey,
+    urlStart: supabaseUrl ? supabaseUrl.substring(0, 20) + '...' : 'missing'
+  });
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return res.status(500).json({ 
+      error: 'Supabase configuration missing',
+      debug: {
+        hasUrl: !!supabaseUrl,
+        hasKey: !!supabaseServiceKey
+      }
+    });
   }
 
   try {
