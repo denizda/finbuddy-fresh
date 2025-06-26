@@ -30,15 +30,20 @@ export default function NewsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchNews = async (isRefresh = false) => {
+  const fetchNews = async (isRefresh = false, isAutomatic = false) => {
     try {
-      if (isRefresh) {
+      if (isRefresh && !isAutomatic) {
         setIsRefreshing(true);
-      } else {
+      } else if (!isRefresh && !isAutomatic) {
         setIsLoading(true);
       }
-      setError(null);
+      
+      // Don't show loading states for automatic refresh
+      if (!isAutomatic) {
+        setError(null);
+      }
 
       // Fetch news from your API endpoint
       const response = await fetch('https://finbuddy-fresh-9mom.vercel.app/api/news', {
@@ -54,16 +59,35 @@ export default function NewsScreen() {
 
       const data = await response.json();
       setNews(data || []);
+      setLastUpdated(new Date());
+      
+      // Clear any previous errors on successful fetch
+      if (error) {
+        setError(null);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load news');
+      // Only set error state if it's not an automatic refresh
+      if (!isAutomatic) {
+        setError(err instanceof Error ? err.message : 'Failed to load news');
+      }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (!isAutomatic) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   };
 
   useEffect(() => {
     fetchNews();
+    
+    // Set up automatic refresh every 3 seconds
+    const interval = setInterval(() => {
+      fetchNews(false, true); // isRefresh=false, isAutomatic=true
+    }, 3000);
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
   }, []);
 
   const handleNewsPress = async (link: string) => {
@@ -165,6 +189,27 @@ export default function NewsScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Auto-refresh header */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Latest Stock News</Text>
+          {lastUpdated && (
+            <Text style={styles.lastUpdated}>
+              Updated: {lastUpdated.toLocaleTimeString()}
+            </Text>
+          )}
+        </View>
+        <View style={styles.headerRight}>
+          <View style={styles.autoRefreshIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>Live</Text>
+          </View>
+          <TouchableOpacity onPress={() => fetchNews(true)} style={styles.headerRefreshButton}>
+            <Icon name="refresh-cw" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      
       <FlatList
         data={news}
         renderItem={renderNewsItem}
@@ -189,6 +234,53 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+  },
+  lastUpdated: {
+    fontSize: 12,
+    color: Colors.secondaryText,
+    marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  autoRefreshIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00ff00',
+  },
+  liveText: {
+    fontSize: 12,
+    color: Colors.primary,
+    fontWeight: '500',
+  },
+  headerRefreshButton: {
+    padding: 4,
   },
   centerContainer: {
     flex: 1,

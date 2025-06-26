@@ -1,0 +1,201 @@
+{
+  "name": "Universal ChatGPT News Agent",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 14,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 20,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Universal News Scan",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Universal news sources and search queries\nconst newsConfigs = [\n  // Financial News Sites\n  {\n    url: 'https://finance.yahoo.com/news/',\n    type: 'financial-general',\n    description: 'Yahoo Finance General News'\n  },\n  {\n    url: 'https://www.marketwatch.com/latest-news',\n    type: 'financial-general', \n    description: 'MarketWatch Latest News'\n  },\n  {\n    url: 'https://www.cnbc.com/finance/',\n    type: 'financial-general',\n    description: 'CNBC Finance News'\n  },\n  {\n    url: 'https://www.bloomberg.com/markets',\n    type: 'financial-general',\n    description: 'Bloomberg Markets'\n  },\n  \n  // Stock-specific searches\n  {\n    url: 'https://finance.yahoo.com/quote/AAPL/news/',\n    type: 'stock-specific',\n    symbol: 'AAPL',\n    description: 'Apple Stock News'\n  },\n  {\n    url: 'https://finance.yahoo.com/quote/MSFT/news/',\n    type: 'stock-specific',\n    symbol: 'MSFT', \n    description: 'Microsoft Stock News'\n  },\n  {\n    url: 'https://finance.yahoo.com/quote/GOOGL/news/',\n    type: 'stock-specific',\n    symbol: 'GOOGL',\n    description: 'Google Stock News'\n  },\n  {\n    url: 'https://finance.yahoo.com/quote/TSLA/news/',\n    type: 'stock-specific',\n    symbol: 'TSLA',\n    description: 'Tesla Stock News'\n  },\n  {\n    url: 'https://finance.yahoo.com/quote/NVDA/news/',\n    type: 'stock-specific', \n    symbol: 'NVDA',\n    description: 'NVIDIA Stock News'\n  },\n  \n  // Tech News Sites\n  {\n    url: 'https://techcrunch.com/',\n    type: 'tech-general',\n    description: 'TechCrunch Latest'\n  },\n  {\n    url: 'https://www.theverge.com/',\n    type: 'tech-general',\n    description: 'The Verge Latest'\n  },\n  \n  // Business News\n  {\n    url: 'https://www.reuters.com/business/',\n    type: 'business-general',\n    description: 'Reuters Business'\n  },\n  {\n    url: 'https://www.wsj.com/news/business',\n    type: 'business-general',\n    description: 'Wall Street Journal Business'\n  }\n];\n\n// Return each config as a separate workflow item\nreturn newsConfigs.map(config => ({ json: config }));"
+      },
+      "id": "news-sources",
+      "name": "Get Universal News Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none"
+          },
+          "timeout": 45000,
+          "redirect": "follow"
+        }
+      },
+      "id": "fetch-webpage",
+      "name": "Fetch Any Web Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an advanced financial and business news extraction AI. Your job is to analyze ANY web page content and intelligently extract relevant news information.\n\nYour capabilities:\n1. Extract news headlines from any website structure\n2. Identify stock symbols mentioned in articles (AAPL, MSFT, GOOGL, etc.)\n3. Find article URLs (convert relative to absolute)\n4. Extract article summaries/excerpts\n5. Parse publication dates in any format\n6. Filter out ads, navigation, and irrelevant content\n7. Focus on actual news articles, earnings reports, market analysis\n\nFor each news item found, determine the most relevant stock symbol:\n- If specific company mentioned → use that symbol (Apple → AAPL)\n- If general market news → use 'MARKET'\n- If tech industry news → use 'TECH'\n- If no clear stock relation → use 'NEWS'\n\nReturn ONLY a JSON array with this structure:\n[\n  {\n    \"title\": \"Full headline here\",\n    \"link\": \"https://absolute-url-to-article.com\",\n    \"summary\": \"Article summary or first paragraph\",\n    \"publishedAt\": \"2024-01-15T10:30:00Z\" or \"recent\",\n    \"source\": \"website-name\",\n    \"symbol\": \"DETECTED_SYMBOL\"\n  }\n]\n\nExtract 3-8 of the most relevant, recent news items. Return empty array [] if no news found."
+            },
+            {
+              "role": "user",
+              "content": "Analyze this web page and extract financial/business news:\n\nWebsite: {{ $json.url }}\nType: {{ $json.type }}\nDescription: {{ $json.description }}\n{{ $json.symbol ? 'Target Symbol: ' + $json.symbol : 'Auto-detect symbols' }}\n\nWeb page HTML content:\n{{ $('Fetch Any Web Page').item(0).json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 3000
+        }
+      },
+      "id": "chatgpt-universal-extract",
+      "name": "ChatGPT Universal News Extractor",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [900, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Advanced processing of ChatGPT response\nconst sourceConfig = $input.first().json;\nconst chatgptResponse = $('ChatGPT Universal News Extractor').item(0).json.message?.content || '';\n\nconsole.log(`Processing response from ${sourceConfig.url}`);\nconsole.log('ChatGPT Response length:', chatgptResponse.length);\n\ntry {\n  let newsItems = [];\n  \n  // Multiple strategies to extract JSON from response\n  let jsonContent = chatgptResponse.trim();\n  \n  // Strategy 1: Look for JSON array pattern\n  const arrayMatch = jsonContent.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/g);\n  if (arrayMatch && arrayMatch.length > 0) {\n    jsonContent = arrayMatch[arrayMatch.length - 1]; // Use the last/largest match\n  }\n  \n  // Strategy 2: Clean up common ChatGPT response formatting\n  jsonContent = jsonContent\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  // Strategy 3: Parse JSON\n  try {\n    newsItems = JSON.parse(jsonContent);\n  } catch (parseError) {\n    console.log('Primary JSON parse failed, trying fallback extraction');\n    \n    // Fallback: Extract individual JSON objects\n    const objectMatches = jsonContent.match(/\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}/g);\n    if (objectMatches) {\n      newsItems = objectMatches.map(match => {\n        try {\n          return JSON.parse(match);\n        } catch (e) {\n          return null;\n        }\n      }).filter(item => item !== null);\n    }\n  }\n  \n  if (!Array.isArray(newsItems)) {\n    newsItems = newsItems ? [newsItems] : [];\n  }\n  \n  console.log(`Extracted ${newsItems.length} raw news items`);\n  \n  // Process and enhance news items\n  const processedItems = [];\n  const seenTitles = new Set();\n  \n  for (const item of newsItems) {\n    if (!item || !item.title || typeof item.title !== 'string') {\n      continue;\n    }\n    \n    const title = item.title.trim();\n    if (title.length < 15 || seenTitles.has(title.toLowerCase())) {\n      continue; // Skip short or duplicate titles\n    }\n    seenTitles.add(title.toLowerCase());\n    \n    // Determine symbol priority\n    let symbol = item.symbol || sourceConfig.symbol || 'NEWS';\n    \n    // Smart symbol detection from title/summary\n    const content = (title + ' ' + (item.summary || '')).toUpperCase();\n    const symbolMap = {\n      'APPLE': 'AAPL', 'AAPL': 'AAPL', 'IPHONE': 'AAPL', 'IPAD': 'AAPL', 'MAC': 'AAPL',\n      'MICROSOFT': 'MSFT', 'MSFT': 'MSFT', 'WINDOWS': 'MSFT', 'AZURE': 'MSFT', 'OFFICE': 'MSFT',\n      'GOOGLE': 'GOOGL', 'GOOGL': 'GOOGL', 'ALPHABET': 'GOOGL', 'YOUTUBE': 'GOOGL', 'ANDROID': 'GOOGL',\n      'AMAZON': 'AMZN', 'AMZN': 'AMZN', 'AWS': 'AMZN', 'ALEXA': 'AMZN',\n      'TESLA': 'TSLA', 'TSLA': 'TSLA', 'ELON MUSK': 'TSLA', 'ELECTRIC VEHICLE': 'TSLA',\n      'META': 'META', 'FACEBOOK': 'META', 'INSTAGRAM': 'META', 'WHATSAPP': 'META',\n      'NVIDIA': 'NVDA', 'NVDA': 'NVDA', 'GPU': 'NVDA', 'AI CHIP': 'NVDA',\n      'NETFLIX': 'NFLX', 'NFLX': 'NFLX', 'STREAMING': 'NFLX'\n    };\n    \n    for (const [keyword, stockSymbol] of Object.entries(symbolMap)) {\n      if (content.includes(keyword)) {\n        symbol = stockSymbol;\n        break;\n      }\n    }\n    \n    // Process publication date\n    let publishedAt = item.publishedAt;\n    if (!publishedAt || publishedAt === 'recent' || publishedAt === 'unknown') {\n      publishedAt = new Date().toISOString();\n    } else {\n      try {\n        // Handle various date formats\n        publishedAt = new Date(publishedAt).toISOString();\n      } catch (e) {\n        publishedAt = new Date().toISOString();\n      }\n    }\n    \n    // Process and validate URL\n    let link = item.link || sourceConfig.url;\n    if (link && !link.startsWith('http')) {\n      try {\n        const baseUrl = new URL(sourceConfig.url);\n        link = new URL(link, baseUrl.origin).href;\n      } catch (e) {\n        link = sourceConfig.url;\n      }\n    }\n    \n    // Create unique identifier to prevent duplicates\n    const timestamp = Date.now();\n    const randomId = Math.floor(Math.random() * 1000);\n    const uniqueTitle = `${title} - ${symbol} ${timestamp}${randomId}`;\n    \n    processedItems.push({\n      symbol: symbol,\n      title: uniqueTitle,\n      link: link,\n      summary: (item.summary || '').substring(0, 400),\n      publishedAt: publishedAt,\n      source: item.source || sourceConfig.description || 'chatgpt-agent'\n    });\n    \n    // Limit items per source\n    if (processedItems.length >= 6) break;\n  }\n  \n  console.log(`Processed ${processedItems.length} final items from ${sourceConfig.url}`);\n  return processedItems.map(item => ({ json: item }));\n  \n} catch (error) {\n  console.error('Error processing ChatGPT response:', error);\n  console.error('Raw response preview:', chatgptResponse.substring(0, 500));\n  \n  // Create error item for debugging\n  return [{\n    json: {\n      symbol: 'ERROR',\n      title: `Processing error for ${sourceConfig.description} - ${Date.now()}`,\n      link: sourceConfig.url,\n      summary: `ChatGPT agent failed to process ${sourceConfig.url}. Error: ${error.message}. Response preview: ${chatgptResponse.substring(0, 300)}...`,\n      publishedAt: new Date().toISOString(),\n      source: 'chatgpt-agent-error'\n    }\n  }];\n}"
+      },
+      "id": "process-universal-response",
+      "name": "Process Universal Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}"
+      },
+      "id": "save-to-finbuddy",
+      "name": "Save to FinBuddy API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Universal News Scan": {
+      "main": [
+        [
+          {
+            "node": "Get Universal News Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Universal News Sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch Any Web Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Any Web Page": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Universal News Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Universal News Extractor": {
+      "main": [
+        [
+          {
+            "node": "Process Universal Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Universal Response": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T11:00:00.000Z",
+  "versionId": "1"
+} 

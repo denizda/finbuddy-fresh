@@ -1,0 +1,196 @@
+{
+  "name": "ChatGPT News Agent - FinBuddy",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 15,
+              "triggerAtMinute": 30
+            },
+            {
+              "triggerAtHour": 21,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule News Fetching",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Define stock symbols and news sources to monitor\nconst stocksAndSources = [\n  { symbol: 'AAPL', sources: [\n    'https://finance.yahoo.com/quote/AAPL/news/',\n    'https://www.marketwatch.com/investing/stock/aapl',\n    'https://www.stocktitan.net/news/AAPL/'\n  ]},\n  { symbol: 'MSFT', sources: [\n    'https://finance.yahoo.com/quote/MSFT/news/',\n    'https://www.marketwatch.com/investing/stock/msft',\n    'https://www.stocktitan.net/news/MSFT/'\n  ]},\n  { symbol: 'GOOGL', sources: [\n    'https://finance.yahoo.com/quote/GOOGL/news/',\n    'https://www.marketwatch.com/investing/stock/googl',\n    'https://www.stocktitan.net/news/GOOGL/'\n  ]},\n  { symbol: 'AMZN', sources: [\n    'https://finance.yahoo.com/quote/AMZN/news/',\n    'https://www.marketwatch.com/investing/stock/amzn',\n    'https://www.stocktitan.net/news/AMZN/'\n  ]},\n  { symbol: 'TSLA', sources: [\n    'https://finance.yahoo.com/quote/TSLA/news/',\n    'https://www.marketwatch.com/investing/stock/tsla',\n    'https://www.stocktitan.net/news/TSLA/'\n  ]},\n  { symbol: 'META', sources: [\n    'https://finance.yahoo.com/quote/META/news/',\n    'https://www.marketwatch.com/investing/stock/meta',\n    'https://www.stocktitan.net/news/META/'\n  ]},\n  { symbol: 'NVDA', sources: [\n    'https://finance.yahoo.com/quote/NVDA/news/',\n    'https://www.marketwatch.com/investing/stock/nvda',\n    'https://www.stocktitan.net/news/NVDA/'\n  ]}\n];\n\n// Create items for each stock-source combination\nconst results = [];\nfor (const stock of stocksAndSources) {\n  for (const source of stock.sources) {\n    results.push({\n      symbol: stock.symbol,\n      url: source,\n      sourceType: source.includes('yahoo') ? 'yahoo' : \n                  source.includes('marketwatch') ? 'marketwatch' : \n                  source.includes('stocktitan') ? 'stocktitan' : 'unknown'\n    });\n  }\n}\n\nreturn results.map(item => ({ json: item }));"
+      },
+      "id": "stock-sources",
+      "name": "Get Stock Sources",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "identity",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-webpage",
+      "name": "Fetch Web Page",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a financial news extraction expert. Your job is to analyze web page content and extract relevant stock news information. You should:\n\n1. Extract news headlines related to the specified stock symbol\n2. Find article links (convert relative URLs to absolute URLs)\n3. Extract summaries or descriptions\n4. Identify publication dates/times\n5. Filter out navigation, ads, and irrelevant content\n6. Focus only on actual news articles\n\nReturn your response as a JSON array with this exact structure:\n[\n  {\n    \"title\": \"News headline here\",\n    \"link\": \"https://full-url-to-article.com\",\n    \"summary\": \"Brief summary or excerpt\",\n    \"publishedAt\": \"2024-01-15T10:30:00Z\" or \"recent\" if no date found,\n    \"source\": \"website name\"\n  }\n]\n\nOnly return the JSON array, no other text. If no relevant news is found, return an empty array []."
+            },
+            {
+              "role": "user",
+              "content": "Extract news for stock symbol: {{ $json.symbol }}\nSource type: {{ $json.sourceType }}\nWebsite URL: {{ $json.url }}\n\nWeb page content:\n{{ $('Fetch Web Page').item(0).json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 2000
+        }
+      },
+      "id": "chatgpt-extract",
+      "name": "ChatGPT News Extractor",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [900, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ChatGPT response and prepare for API submission\nconst symbol = $json.symbol;\nconst chatgptResponse = $('ChatGPT News Extractor').item(0).json.message?.content || '';\n\nconsole.log('ChatGPT Response:', chatgptResponse);\n\ntry {\n  // Parse the JSON response from ChatGPT\n  let newsItems = [];\n  \n  // Try to extract JSON from the response\n  const jsonMatch = chatgptResponse.match(/\\[.*\\]/s);\n  if (jsonMatch) {\n    newsItems = JSON.parse(jsonMatch[0]);\n  } else {\n    // Fallback: try to parse the entire response as JSON\n    newsItems = JSON.parse(chatgptResponse);\n  }\n  \n  console.log('Parsed news items:', newsItems.length);\n  \n  if (!Array.isArray(newsItems)) {\n    console.log('Response is not an array, wrapping in array');\n    newsItems = [newsItems];\n  }\n  \n  // Process and clean up the news items\n  const processedItems = [];\n  for (let i = 0; i < Math.min(newsItems.length, 5); i++) {\n    const item = newsItems[i];\n    \n    if (!item.title || item.title.trim().length < 10) {\n      continue; // Skip items without proper titles\n    }\n    \n    // Clean and validate the data\n    let publishedAt = item.publishedAt;\n    if (!publishedAt || publishedAt === 'recent') {\n      publishedAt = new Date().toISOString();\n    } else {\n      // Try to parse the date, fallback to current time if invalid\n      try {\n        publishedAt = new Date(publishedAt).toISOString();\n      } catch (e) {\n        publishedAt = new Date().toISOString();\n      }\n    }\n    \n    // Ensure link is absolute URL\n    let link = item.link || '';\n    if (link && !link.startsWith('http')) {\n      const baseUrl = $json.url;\n      const urlObj = new URL(baseUrl);\n      link = `${urlObj.protocol}//${urlObj.host}${link}`;\n    }\n    \n    // Create unique title to avoid duplicates\n    const randomId = Math.floor(Math.random() * 10000);\n    const uniqueTitle = `${item.title.substring(0, 150)} - ${symbol} ${randomId}`;\n    \n    processedItems.push({\n      symbol: symbol,\n      title: uniqueTitle,\n      link: link || $json.url,\n      summary: (item.summary || '').substring(0, 300),\n      publishedAt: publishedAt,\n      source: item.source || 'chatgpt-agent'\n    });\n  }\n  \n  console.log(`Processed ${processedItems.length} items for ${symbol}`);\n  return processedItems.map(item => ({ json: item }));\n  \n} catch (error) {\n  console.error('Error processing ChatGPT response:', error);\n  console.error('Raw response:', chatgptResponse);\n  \n  // Fallback: create a single item indicating processing error\n  return [{\n    json: {\n      symbol: symbol,\n      title: `News processing error for ${symbol} - ${Date.now()}`,\n      link: $json.url,\n      summary: `ChatGPT agent encountered an error processing news from ${$json.url}. Raw response: ${chatgptResponse.substring(0, 200)}...`,\n      publishedAt: new Date().toISOString(),\n      source: 'chatgpt-agent-error'\n    }\n  }];\n}"
+      },
+      "id": "process-response",
+      "name": "Process ChatGPT Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}"
+      },
+      "id": "save-to-api",
+      "name": "Save to FinBuddy API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Schedule News Fetching": {
+      "main": [
+        [
+          {
+            "node": "Get Stock Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Stock Sources": {
+      "main": [
+        [
+          {
+            "node": "Fetch Web Page",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Web Page": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT News Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT News Extractor": {
+      "main": [
+        [
+          {
+            "node": "Process ChatGPT Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process ChatGPT Response": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T10:34:50.112Z",
+  "versionId": "1"
+} 

@@ -1,0 +1,146 @@
+{
+  "name": "Fully Autonomous ChatGPT News Agent",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 12,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 16,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 20,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Full Autonomy",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a fully autonomous financial news intelligence agent with complete control over the entire news gathering and processing pipeline.\n\nYour COMPLETE responsibilities:\n1. **SOURCE DISCOVERY**: Identify and select the best financial news sources\n2. **CONTENT FETCHING**: Use web scraping techniques to gather content\n3. **INTELLIGENT PROCESSING**: Extract, analyze, and structure news data\n4. **QUALITY CONTROL**: Filter, validate, and enhance the information\n\nYou have access to web browsing capabilities and can:\n- Visit any financial news website\n- Extract content from any page structure\n- Analyze market trends and timing\n- Identify trending stocks and sectors\n- Process content in any format\n\nYour output should be a JSON array of processed news items ready for database storage:\n[\n  {\n    \"symbol\": \"DETECTED_STOCK_SYMBOL\",\n    \"title\": \"Complete news headline\",\n    \"link\": \"https://full-article-url.com\",\n    \"summary\": \"Comprehensive article summary\",\n    \"publishedAt\": \"2024-01-15T10:30:00Z\",\n    \"source\": \"source-website-name\",\n    \"importance\": \"high|medium|low\",\n    \"category\": \"earnings|breaking|analysis|market|product|crypto\",\n    \"confidence\": \"high|medium|low\"\n  }\n]\n\nProcess 15-30 high-quality news items from diverse sources. Focus on:\n- Breaking financial news\n- Major stock movements\n- Earnings reports\n- Market analysis\n- Company announcements\n- Sector trends\n- Economic indicators\n\nBe completely autonomous - make all decisions about sources, content, and processing."
+            },
+            {
+              "role": "user",
+              "content": "Execute a complete autonomous news gathering cycle right now.\n\nCurrent context:\n- Date: {{ new Date().toISOString().split('T')[0] }}\n- Time: {{ new Date().toLocaleTimeString() }} UTC\n- Day: {{ new Date().toLocaleDateString('en-US', { weekday: 'long' }) }}\n\nYour mission:\n1. **DISCOVER**: Identify the most relevant financial news sources for this moment\n2. **FETCH**: Gather content from these sources using your web capabilities\n3. **PROCESS**: Extract and structure the most important news items\n4. **DELIVER**: Return processed news ready for database storage\n\nConsider current market conditions, timing, and what's likely to be trending. Execute the complete pipeline autonomously and return your processed news items.\n\nGo ahead - take full control and gather the news!"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 4000
+        }
+      },
+      "id": "autonomous-agent",
+      "name": "Fully Autonomous ChatGPT Agent",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [460, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process the fully autonomous ChatGPT response\nconst chatgptResponse = $input.all()[0].json.message?.content || '';\n\nconsole.log('=== FULLY AUTONOMOUS AGENT RESPONSE ===');\nconsole.log('Response length:', chatgptResponse.length);\nconsole.log('Response preview:', chatgptResponse.substring(0, 500));\n\ntry {\n  let newsItems = [];\n  \n  // Advanced JSON extraction from autonomous response\n  let jsonContent = chatgptResponse.trim();\n  \n  // Strategy 1: Look for JSON array patterns\n  const arrayMatches = jsonContent.match(/\\[\\s*\\{[\\s\\S]*?\\}\\s*\\]/g);\n  if (arrayMatches && arrayMatches.length > 0) {\n    // Use the largest/most complete JSON array found\n    jsonContent = arrayMatches.reduce((prev, current) => \n      current.length > prev.length ? current : prev\n    );\n  }\n  \n  // Strategy 2: Clean up ChatGPT formatting\n  jsonContent = jsonContent\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^.*?\\[/s, '[')\n    .replace(/\\].*$/s, ']')\n    .trim();\n  \n  console.log('Cleaned JSON content length:', jsonContent.length);\n  console.log('JSON preview:', jsonContent.substring(0, 300));\n  \n  // Strategy 3: Parse the autonomous response\n  try {\n    newsItems = JSON.parse(jsonContent);\n    console.log('Successfully parsed autonomous response');\n  } catch (parseError) {\n    console.log('Primary parse failed, attempting object-by-object extraction');\n    \n    // Fallback: Extract individual objects\n    const objectPattern = /\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}/g;\n    const objectMatches = jsonContent.match(objectPattern);\n    \n    if (objectMatches) {\n      newsItems = [];\n      for (const match of objectMatches) {\n        try {\n          const parsed = JSON.parse(match);\n          if (parsed.title && parsed.symbol) {\n            newsItems.push(parsed);\n          }\n        } catch (e) {\n          console.log('Failed to parse object:', match.substring(0, 100));\n        }\n      }\n    }\n  }\n  \n  if (!Array.isArray(newsItems)) {\n    newsItems = newsItems ? [newsItems] : [];\n  }\n  \n  console.log(`Autonomous agent extracted ${newsItems.length} raw news items`);\n  \n  // Enhanced processing of autonomous results\n  const processedItems = [];\n  const seenTitles = new Set();\n  const seenLinks = new Set();\n  \n  for (const item of newsItems) {\n    if (!item || !item.title || !item.symbol) {\n      console.log('Skipping invalid item:', item);\n      continue;\n    }\n    \n    const title = item.title.trim();\n    const link = item.link || '';\n    \n    // Advanced duplicate detection\n    const titleKey = title.toLowerCase().replace(/[^a-z0-9]/g, '');\n    const linkKey = link.toLowerCase();\n    \n    if (title.length < 20 || seenTitles.has(titleKey) || (link && seenLinks.has(linkKey))) {\n      console.log('Skipping duplicate:', title.substring(0, 50));\n      continue;\n    }\n    \n    seenTitles.add(titleKey);\n    if (link) seenLinks.add(linkKey);\n    \n    // Validate and enhance symbol detection\n    let symbol = item.symbol.toUpperCase();\n    \n    // Symbol validation patterns\n    const validSymbolPattern = /^[A-Z]{1,5}$/;\n    const sectorSymbols = ['TECH', 'AI', 'CRYPTO', 'EV', 'ENERGY', 'BIOTECH', 'MARKET', 'NEWS', 'BUSINESS'];\n    \n    if (!validSymbolPattern.test(symbol) && !sectorSymbols.includes(symbol)) {\n      // Try to extract a valid symbol from content\n      const content = (title + ' ' + (item.summary || '')).toUpperCase();\n      const symbolMap = {\n        'APPLE': 'AAPL', 'MICROSOFT': 'MSFT', 'GOOGLE': 'GOOGL', 'ALPHABET': 'GOOGL',\n        'AMAZON': 'AMZN', 'TESLA': 'TSLA', 'META': 'META', 'FACEBOOK': 'META',\n        'NVIDIA': 'NVDA', 'NETFLIX': 'NFLX', 'SALESFORCE': 'CRM', 'UBER': 'UBER',\n        'BITCOIN': 'CRYPTO', 'CRYPTOCURRENCY': 'CRYPTO', 'ARTIFICIAL INTELLIGENCE': 'AI'\n      };\n      \n      for (const [keyword, stockSymbol] of Object.entries(symbolMap)) {\n        if (content.includes(keyword)) {\n          symbol = stockSymbol;\n          break;\n        }\n      }\n      \n      // Final fallback\n      if (!validSymbolPattern.test(symbol) && !sectorSymbols.includes(symbol)) {\n        symbol = 'NEWS';\n      }\n    }\n    \n    // Process and validate timestamp\n    let publishedAt = item.publishedAt;\n    if (!publishedAt || publishedAt === 'recent' || publishedAt === 'unknown') {\n      publishedAt = new Date().toISOString();\n    } else {\n      try {\n        const date = new Date(publishedAt);\n        if (isNaN(date.getTime())) {\n          publishedAt = new Date().toISOString();\n        } else {\n          publishedAt = date.toISOString();\n        }\n      } catch (e) {\n        publishedAt = new Date().toISOString();\n      }\n    }\n    \n    // Validate and process URL\n    let processedLink = link;\n    if (processedLink && !processedLink.startsWith('http')) {\n      processedLink = `https://${processedLink}`;\n    }\n    \n    // Create unique identifier for database\n    const timestamp = Date.now();\n    const randomId = Math.floor(Math.random() * 10000);\n    const importance = item.importance || 'medium';\n    const confidence = item.confidence || 'medium';\n    \n    const uniqueTitle = `${title} - ${symbol} [${importance}/${confidence}] ${timestamp}${randomId}`;\n    \n    // Final item structure\n    const processedItem = {\n      symbol: symbol,\n      title: uniqueTitle,\n      link: processedLink || 'https://finance.yahoo.com',\n      summary: (item.summary || '').substring(0, 600),\n      publishedAt: publishedAt,\n      source: `${item.source || 'autonomous-agent'} [fully-autonomous]`,\n      importance: importance,\n      category: item.category || 'general',\n      confidence: confidence\n    };\n    \n    processedItems.push(processedItem);\n    console.log(`Processed: ${symbol} - ${title.substring(0, 50)}...`);\n    \n    // Limit total items\n    if (processedItems.length >= 25) {\n      console.log('Reached maximum item limit');\n      break;\n    }\n  }\n  \n  console.log(`=== AUTONOMOUS PROCESSING COMPLETE ===`);\n  console.log(`Final processed items: ${processedItems.length}`);\n  console.log(`Symbols found: ${[...new Set(processedItems.map(item => item.symbol))].join(', ')}`);\n  \n  if (processedItems.length === 0) {\n    console.log('No valid items processed, creating fallback item');\n    return [{\n      json: {\n        symbol: 'SYSTEM',\n        title: `Autonomous agent execution - ${new Date().toISOString()} - ${Date.now()}`,\n        link: 'https://finance.yahoo.com',\n        summary: `Fully autonomous ChatGPT agent executed but produced no valid news items. Raw response length: ${chatgptResponse.length}. This may indicate the agent needs adjustment or the response format changed.`,\n        publishedAt: new Date().toISOString(),\n        source: 'autonomous-agent-system',\n        importance: 'low',\n        category: 'system',\n        confidence: 'high'\n      }\n    }];\n  }\n  \n  return processedItems.map(item => ({ json: item }));\n  \n} catch (error) {\n  console.error('=== AUTONOMOUS PROCESSING ERROR ===');\n  console.error('Error:', error.message);\n  console.error('Stack:', error.stack);\n  console.error('Raw response preview:', chatgptResponse.substring(0, 1000));\n  \n  // Error fallback\n  return [{\n    json: {\n      symbol: 'ERROR',\n      title: `Autonomous agent error - ${new Date().toISOString()} - ${Date.now()}`,\n      link: 'https://finance.yahoo.com',\n      summary: `Fully autonomous ChatGPT agent encountered a processing error: ${error.message}. Raw response preview: ${chatgptResponse.substring(0, 400)}...`,\n      publishedAt: new Date().toISOString(),\n      source: 'autonomous-agent-error',\n      importance: 'low',\n      category: 'error',\n      confidence: 'high'\n    }\n  }];\n}"
+      },
+      "id": "process-autonomous-results",
+      "name": "Process Autonomous Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}"
+      },
+      "id": "save-news",
+      "name": "Save to FinBuddy",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Full Autonomy": {
+      "main": [
+        [
+          {
+            "node": "Fully Autonomous ChatGPT Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fully Autonomous ChatGPT Agent": {
+      "main": [
+        [
+          {
+            "node": "Process Autonomous Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Autonomous Results": {
+      "main": [
+        [
+          {
+            "node": "Save to FinBuddy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T13:00:00.000Z",
+  "versionId": "1"
+} 

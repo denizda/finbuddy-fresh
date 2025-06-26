@@ -1,0 +1,243 @@
+{
+  "name": "Autonomous ChatGPT News Agent",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 15,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 21,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Autonomous News Agent",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an autonomous financial news research agent. Your job is to identify the best news sources and search strategies for gathering current stock market and business news.\n\nYour capabilities:\n1. Choose the most relevant and reliable news sources\n2. Identify trending stocks and companies to focus on\n3. Determine optimal search queries and URLs\n4. Prioritize sources based on current market conditions\n5. Adapt to breaking news and market events\n\nReturn a JSON array of news sources to investigate, with this structure:\n[\n  {\n    \"url\": \"https://complete-url-to-news-source.com\",\n    \"description\": \"Brief description of what to look for\",\n    \"priority\": \"high|medium|low\",\n    \"focus\": \"stocks|crypto|general|earnings|breaking\",\n    \"expectedSymbols\": [\"AAPL\", \"MSFT\", \"GOOGL\"] // or [\"AUTO_DETECT\"]\n  }\n]\n\nConsider:\n- Current market trends and volatility\n- Earnings season timing\n- Recent major news events\n- Popular stocks and sectors\n- Both mainstream and specialized financial sources\n- International markets if relevant\n\nProvide 8-15 diverse, high-quality sources. Focus on sources that are likely to have fresh, relevant content right now."
+            },
+            {
+              "role": "user",
+              "content": "It's currently {{ new Date().toISOString().split('T')[0] }} at {{ new Date().toLocaleTimeString() }} UTC. \n\nAnalyze the current market situation and identify the best news sources to monitor right now. Consider:\n- What major stocks are likely trending today?\n- Which news sites would have the freshest content?\n- Are there any earnings, product launches, or major events happening?\n- What sectors are hot right now (AI, EV, crypto, etc.)?\n\nReturn your recommended news sources to investigate."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 2000
+        }
+      },
+      "id": "chatgpt-source-selector",
+      "name": "ChatGPT Source Selector",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [460, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ChatGPT's source recommendations\nconst chatgptResponse = $('ChatGPT Source Selector').item(0).json.message?.content || '';\n\nconsole.log('ChatGPT Source Recommendations:', chatgptResponse);\n\ntry {\n  let sources = [];\n  \n  // Extract JSON from ChatGPT response\n  let jsonContent = chatgptResponse.trim();\n  \n  // Clean up response formatting\n  const jsonMatch = jsonContent.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/g);\n  if (jsonMatch && jsonMatch.length > 0) {\n    jsonContent = jsonMatch[jsonMatch.length - 1];\n  }\n  \n  jsonContent = jsonContent\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  sources = JSON.parse(jsonContent);\n  \n  if (!Array.isArray(sources)) {\n    sources = [sources];\n  }\n  \n  console.log(`ChatGPT recommended ${sources.length} news sources`);\n  \n  // Validate and enhance sources\n  const validSources = [];\n  for (const source of sources) {\n    if (source.url && source.url.startsWith('http')) {\n      validSources.push({\n        url: source.url,\n        description: source.description || 'News source',\n        priority: source.priority || 'medium',\n        focus: source.focus || 'general',\n        expectedSymbols: source.expectedSymbols || ['AUTO_DETECT'],\n        timestamp: new Date().toISOString()\n      });\n    }\n  }\n  \n  console.log(`Validated ${validSources.length} sources for processing`);\n  return validSources.map(source => ({ json: source }));\n  \n} catch (error) {\n  console.error('Error processing ChatGPT source recommendations:', error);\n  console.error('Raw response:', chatgptResponse);\n  \n  // Fallback to a few reliable sources if ChatGPT fails\n  const fallbackSources = [\n    {\n      url: 'https://finance.yahoo.com/news/',\n      description: 'Yahoo Finance Latest News',\n      priority: 'high',\n      focus: 'general',\n      expectedSymbols: ['AUTO_DETECT']\n    },\n    {\n      url: 'https://www.marketwatch.com/latest-news',\n      description: 'MarketWatch Breaking News',\n      priority: 'high', \n      focus: 'general',\n      expectedSymbols: ['AUTO_DETECT']\n    },\n    {\n      url: 'https://www.cnbc.com/markets/',\n      description: 'CNBC Markets News',\n      priority: 'medium',\n      focus: 'general',\n      expectedSymbols: ['AUTO_DETECT']\n    }\n  ];\n  \n  return fallbackSources.map(source => ({ json: source }));\n}"
+      },
+      "id": "process-sources",
+      "name": "Process Source Recommendations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1"
+          },
+          "timeout": 30000,
+          "redirect": "follow"
+        }
+      },
+      "id": "fetch-webpage",
+      "name": "Fetch Recommended Pages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o-mini",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert financial news extraction AI with full autonomy to analyze and extract relevant information from any web page.\n\nYour mission:\n1. Analyze the provided web page content intelligently\n2. Extract the most important and relevant financial/business news\n3. Automatically detect and assign appropriate stock symbols\n4. Filter out noise, ads, and irrelevant content\n5. Focus on breaking news, earnings, market movements, and company updates\n\nStock symbol assignment rules:\n- Company-specific news → use company symbol (Apple news → AAPL)\n- Market/sector news → use sector symbols (Tech → TECH, Market → MARKET)\n- Crypto news → use CRYPTO\n- General business → use BUSINESS\n- Unknown/other → use NEWS\n\nExtract 3-8 of the most newsworthy items. Return ONLY a JSON array:\n[\n  {\n    \"title\": \"Complete headline\",\n    \"link\": \"https://full-article-url.com\",\n    \"summary\": \"Detailed summary of the news\",\n    \"publishedAt\": \"2024-01-15T10:30:00Z\" or \"recent\",\n    \"source\": \"website-name\",\n    \"symbol\": \"AUTO_DETECTED_SYMBOL\",\n    \"importance\": \"high|medium|low\",\n    \"category\": \"earnings|breaking|analysis|market|product\"\n  }\n]\n\nReturn empty array [] if no relevant financial news found."
+            },
+            {
+              "role": "user",
+              "content": "Analyze this web page and extract the most important financial news:\n\nSource URL: {{ $json.url }}\nSource Description: {{ $json.description }}\nExpected Focus: {{ $json.focus }}\nPriority Level: {{ $json.priority }}\nExpected Symbols: {{ $json.expectedSymbols }}\n\nWeb page content to analyze:\n{{ $('Fetch Recommended Pages').item(0).json.data }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1,
+          "maxTokens": 3000
+        }
+      },
+      "id": "chatgpt-autonomous-extractor",
+      "name": "ChatGPT Autonomous News Extractor",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [1120, 300],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Autonomous processing of extracted news\nconst sourceInfo = $input.first().json;\nconst chatgptResponse = $('ChatGPT Autonomous News Extractor').item(0).json.message?.content || '';\n\nconsole.log(`Processing autonomous extraction from: ${sourceInfo.url}`);\nconsole.log(`Response length: ${chatgptResponse.length}`);\n\ntry {\n  let newsItems = [];\n  \n  // Robust JSON extraction\n  let jsonContent = chatgptResponse.trim();\n  \n  // Find JSON array in response\n  const arrayMatch = jsonContent.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/g);\n  if (arrayMatch && arrayMatch.length > 0) {\n    jsonContent = arrayMatch[arrayMatch.length - 1];\n  }\n  \n  // Clean formatting\n  jsonContent = jsonContent\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  try {\n    newsItems = JSON.parse(jsonContent);\n  } catch (parseError) {\n    console.log('Primary parse failed, trying object extraction');\n    const objectMatches = jsonContent.match(/\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}/g);\n    if (objectMatches) {\n      newsItems = objectMatches.map(match => {\n        try {\n          return JSON.parse(match);\n        } catch (e) {\n          return null;\n        }\n      }).filter(item => item !== null);\n    }\n  }\n  \n  if (!Array.isArray(newsItems)) {\n    newsItems = newsItems ? [newsItems] : [];\n  }\n  \n  console.log(`Extracted ${newsItems.length} news items`);\n  \n  // Enhanced processing with autonomous intelligence\n  const processedItems = [];\n  const seenTitles = new Set();\n  \n  for (const item of newsItems) {\n    if (!item || !item.title || typeof item.title !== 'string') {\n      continue;\n    }\n    \n    const title = item.title.trim();\n    if (title.length < 20 || seenTitles.has(title.toLowerCase())) {\n      continue;\n    }\n    seenTitles.add(title.toLowerCase());\n    \n    // Intelligent symbol validation and enhancement\n    let symbol = item.symbol || 'NEWS';\n    \n    // Advanced symbol detection\n    const content = (title + ' ' + (item.summary || '')).toUpperCase();\n    const symbolPatterns = {\n      // Major stocks\n      /\\b(APPLE|AAPL|IPHONE|IPAD|MAC|MACBOOK|APPLE\\s+INC)\\b/: 'AAPL',\n      /\\b(MICROSOFT|MSFT|WINDOWS|AZURE|OFFICE|TEAMS)\\b/: 'MSFT',\n      /\\b(GOOGLE|GOOGL|ALPHABET|YOUTUBE|ANDROID|GMAIL)\\b/: 'GOOGL',\n      /\\b(AMAZON|AMZN|AWS|ALEXA|PRIME)\\b/: 'AMZN',\n      /\\b(TESLA|TSLA|ELON\\s+MUSK|ELECTRIC\\s+VEHICLE|MODEL\\s+[3SXY])\\b/: 'TSLA',\n      /\\b(META|FACEBOOK|INSTAGRAM|WHATSAPP|ZUCKERBERG)\\b/: 'META',\n      /\\b(NVIDIA|NVDA|GPU|AI\\s+CHIP|CUDA)\\b/: 'NVDA',\n      /\\b(NETFLIX|NFLX|STREAMING)\\b/: 'NFLX',\n      /\\b(SALESFORCE|CRM)\\b/: 'CRM',\n      /\\b(UBER|RIDESHARE)\\b/: 'UBER',\n      \n      // Sectors and themes\n      /\\b(ARTIFICIAL\\s+INTELLIGENCE|AI\\s+STOCKS|MACHINE\\s+LEARNING)\\b/: 'AI',\n      /\\b(CRYPTOCURRENCY|CRYPTO|BITCOIN|ETHEREUM|BLOCKCHAIN)\\b/: 'CRYPTO',\n      /\\b(ELECTRIC\\s+VEHICLE|EV\\s+STOCKS|BATTERY)\\b/: 'EV',\n      /\\b(RENEWABLE\\s+ENERGY|SOLAR|WIND\\s+ENERGY)\\b/: 'ENERGY',\n      /\\b(BIOTECH|PHARMACEUTICAL|DRUG\\s+APPROVAL)\\b/: 'BIOTECH',\n      /\\b(REAL\\s+ESTATE|REIT)\\b/: 'REIT',\n      /\\b(MARKET\\s+CRASH|STOCK\\s+MARKET|DOW\\s+JONES|S&P\\s+500|NASDAQ)\\b/: 'MARKET'\n    };\n    \n    for (const [pattern, detectedSymbol] of Object.entries(symbolPatterns)) {\n      if (pattern.test(content)) {\n        symbol = detectedSymbol;\n        break;\n      }\n    }\n    \n    // Process dates intelligently\n    let publishedAt = item.publishedAt;\n    if (!publishedAt || publishedAt === 'recent' || publishedAt === 'unknown') {\n      publishedAt = new Date().toISOString();\n    } else {\n      try {\n        publishedAt = new Date(publishedAt).toISOString();\n      } catch (e) {\n        publishedAt = new Date().toISOString();\n      }\n    }\n    \n    // Smart URL processing\n    let link = item.link || sourceInfo.url;\n    if (link && !link.startsWith('http')) {\n      try {\n        const baseUrl = new URL(sourceInfo.url);\n        link = new URL(link, baseUrl.origin).href;\n      } catch (e) {\n        link = sourceInfo.url;\n      }\n    }\n    \n    // Create unique title with intelligence context\n    const timestamp = Date.now();\n    const importance = item.importance || 'medium';\n    const category = item.category || 'general';\n    const uniqueId = Math.floor(Math.random() * 1000);\n    \n    const uniqueTitle = `${title} - ${symbol} [${importance}] ${timestamp}${uniqueId}`;\n    \n    processedItems.push({\n      symbol: symbol,\n      title: uniqueTitle,\n      link: link,\n      summary: (item.summary || '').substring(0, 500),\n      publishedAt: publishedAt,\n      source: `${item.source || sourceInfo.description} [autonomous]`,\n      importance: importance,\n      category: category\n    });\n    \n    // Prioritize high-importance items\n    if (processedItems.length >= (importance === 'high' ? 8 : 5)) break;\n  }\n  \n  console.log(`Autonomously processed ${processedItems.length} items from ${sourceInfo.url}`);\n  return processedItems.map(item => ({ json: item }));\n  \n} catch (error) {\n  console.error('Autonomous processing error:', error);\n  console.error('Response preview:', chatgptResponse.substring(0, 300));\n  \n  return [{\n    json: {\n      symbol: 'ERROR',\n      title: `Autonomous agent error - ${sourceInfo.description} - ${Date.now()}`,\n      link: sourceInfo.url,\n      summary: `Autonomous ChatGPT agent encountered an error processing ${sourceInfo.url}. Error: ${error.message}`,\n      publishedAt: new Date().toISOString(),\n      source: 'autonomous-agent-error',\n      importance: 'low',\n      category: 'error'\n    }\n  }];\n}"
+      },
+      "id": "autonomous-processor",
+      "name": "Autonomous News Processor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source\n} }}"
+      },
+      "id": "save-autonomous-news",
+      "name": "Save Autonomous News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 300]
+    }
+  ],
+  "connections": {
+    "Schedule Autonomous News Agent": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Source Selector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Source Selector": {
+      "main": [
+        [
+          {
+            "node": "Process Source Recommendations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Source Recommendations": {
+      "main": [
+        [
+          {
+            "node": "Fetch Recommended Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Recommended Pages": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Autonomous News Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Autonomous News Extractor": {
+      "main": [
+        [
+          {
+            "node": "Autonomous News Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autonomous News Processor": {
+      "main": [
+        [
+          {
+            "node": "Save Autonomous News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T12:00:00.000Z",
+  "versionId": "1"
+} 
