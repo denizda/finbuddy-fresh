@@ -1,6 +1,6 @@
 import { publicProcedure, createTRPCRouter } from '../../create-context';
 import { z } from 'zod';
-import fetch from 'node-fetch';
+// import fetch from 'node-fetch'; // Temporarily commented to fix build
 import { newsRoute, getNewsRoute } from './news';
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
@@ -37,7 +37,7 @@ export const stocksRouter = createTRPCRouter({
 
       try {
         // Search for stocks using Finnhub symbol search
-        const response = await fetch(
+        const response = await globalThis.fetch(
           `https://finnhub.io/api/v1/search?q=${encodeURIComponent(input.query)}&token=${FINNHUB_API_KEY}`
         );
         
@@ -52,7 +52,7 @@ export const stocksRouter = createTRPCRouter({
         const quotes = await Promise.all(
           symbols.map(async (symbol: string) => {
             try {
-              const quoteResponse = await fetch(
+              const quoteResponse = await globalThis.fetch(
                 `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`
               );
               const quoteData = await quoteResponse.json() as FinnhubQuoteResponse;
@@ -91,7 +91,7 @@ export const stocksRouter = createTRPCRouter({
       }
 
       try {
-        const response = await fetch(
+        const response = await globalThis.fetch(
           `https://finnhub.io/api/v1/quote?symbol=${input.symbol}&token=${FINNHUB_API_KEY}`
         );
         

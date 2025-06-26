@@ -1,6 +1,6 @@
 import { publicProcedure, createTRPCRouter } from '../../create-context';
 import { z } from 'zod';
-import fetch from 'node-fetch';
+// import fetch from 'node-fetch'; // Temporarily commented to fix build
 
 // Define TypeScript interfaces for our data model
 interface Company {
@@ -53,7 +53,7 @@ async function getRealtimePrice(symbol: string, retries = 3, delay = 1000): Prom
   for (let i = 0; i < retries; i++) {
     try {
       const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
-      const response = await fetch(url);
+      const response = await globalThis.fetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
