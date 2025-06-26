@@ -1,0 +1,222 @@
+{
+  "name": "StockTitan Hybrid - HTML Extract + AI Sentiment",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 17,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Schedule Real News",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of popular stocks for StockTitan scraping\nconst stockSymbols = [\n  'AAPL',\n  'MSFT', \n  'GOOGL',\n  'AMZN',\n  'TSLA'\n];\n\nreturn stockSymbols.map(symbol => {\n  return {\n    json: {\n      symbol: symbol,\n      url: `https://www.stocktitan.net/news/${symbol}/`\n    }\n  };\n});"
+      },
+      "name": "Real Stock URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "stock-urls"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          },
+          "timeout": 25000,
+          "followRedirect": true
+        }
+      },
+      "name": "Scrape Real News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "id": "scrape-real-news"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple text extraction from HTML for StockTitan\nconst html = $json.data || '';\nconst symbol = $json.symbol || 'UNKNOWN';\nconst url = $json.url || '';\n\n// Extract symbol from URL if needed\nlet finalSymbol = symbol;\nif (url && url.includes('/news/')) {\n  const urlMatch = url.match(/\\/news\\/([A-Z]+)\\//i);\n  if (urlMatch && urlMatch[1]) {\n    finalSymbol = urlMatch[1].toUpperCase();\n  }\n}\n\nconsole.log(`Processing ${finalSymbol} from ${url}`);\nconsole.log(`HTML length: ${html.length}`);\n\n// Simple regex extraction for news content\nconst results = [];\n\n// Look for common news patterns in the HTML\nconst newsPatterns = [\n  // Headlines in various tags\n  /<h[1-6][^>]*>([^<]+)<\\/h[1-6]>/gi,\n  // Links with news-like text\n  /<a[^>]*href=\"[^\"]*\"[^>]*>([^<]{20,})<\\/a>/gi,\n  // Divs or spans with substantial text\n  /<(?:div|span|p)[^>]*>([^<]{30,})<\\/(?:div|span|p)>/gi\n];\n\nconst foundTexts = new Set();\n\n// Extract text using patterns\nfor (const pattern of newsPatterns) {\n  let match;\n  while ((match = pattern.exec(html)) !== null && foundTexts.size < 10) {\n    const text = match[1].trim();\n    if (text.length > 20 && \n        !text.toLowerCase().includes('cookie') &&\n        !text.toLowerCase().includes('privacy') &&\n        !text.toLowerCase().includes('login') &&\n        !text.toLowerCase().includes('sign up') &&\n        !text.toLowerCase().includes('menu') &&\n        !text.toLowerCase().includes('navigation')) {\n      foundTexts.add(text);\n    }\n  }\n}\n\n// Convert to array and take first 3\nconst textArray = Array.from(foundTexts).slice(0, 3);\n\nconsole.log(`Found ${textArray.length} potential news items`);\n\n// Create news items\nfor (let i = 0; i < textArray.length; i++) {\n  const text = textArray[i];\n  const timestamp = Date.now();\n  const randomId = Math.floor(Math.random() * 1000);\n  \n  results.push({\n    symbol: finalSymbol,\n    title: text.length > 100 ? text.substring(0, 100) + '...' : text,\n    summary: text.length > 200 ? text.substring(0, 200) + '...' : text,\n    link: url,\n    publishedAt: new Date().toISOString(),\n    source: 'stocktitan-extracted',\n    rawText: text\n  });\n}\n\nif (results.length === 0) {\n  // Fallback: create a basic item\n  results.push({\n    symbol: finalSymbol,\n    title: `News update for ${finalSymbol}`,\n    summary: `Latest news and updates for ${finalSymbol} from StockTitan`,\n    link: url,\n    publishedAt: new Date().toISOString(),\n    source: 'stocktitan-fallback',\n    rawText: `News for ${finalSymbol}`\n  });\n}\n\nconsole.log(`Created ${results.length} news items for ${finalSymbol}`);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Extract News Content",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300],
+      "id": "extract-news-content"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a financial sentiment analyst. Analyze the provided news text and determine if it's BULLISH (positive for stock price), BEARISH (negative for stock price), or NEUTRAL.\n\nReturn ONLY a JSON object:\n{\n  \"sentiment\": \"BULLISH|BEARISH|NEUTRAL\",\n  \"confidence\": \"high|medium|low\",\n  \"reasoning\": \"Brief explanation\"\n}"
+            },
+            {
+              "role": "user",
+              "content": "Analyze sentiment for {{ $json.symbol }}:\n\nTitle: {{ $json.title }}\nContent: {{ $json.rawText }}\n\nProvide sentiment analysis."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 300
+        }
+      },
+      "name": "ChatGPT Sentiment Only",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [1120, 300],
+      "id": "chatgpt-sentiment",
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine extracted news with ChatGPT sentiment\nconst newsData = $input.all()[0].json;\nconst sentimentData = $input.all()[1].json;\n\nconsole.log('News data:', JSON.stringify(newsData, null, 2));\nconsole.log('Sentiment data:', JSON.stringify(sentimentData, null, 2));\n\n// Parse sentiment response\nlet sentiment = 'NEUTRAL';\nlet confidence = 'medium';\nlet reasoning = 'Default analysis';\n\ntry {\n  const sentimentResponse = sentimentData.message?.content || '';\n  if (sentimentResponse) {\n    const cleanResponse = sentimentResponse.trim()\n      .replace(/^```json\\s*/i, '')\n      .replace(/\\s*```$/i, '')\n      .trim();\n    \n    const parsed = JSON.parse(cleanResponse);\n    sentiment = parsed.sentiment || 'NEUTRAL';\n    confidence = parsed.confidence || 'medium';\n    reasoning = parsed.reasoning || 'AI analysis';\n  }\n} catch (e) {\n  console.log('Failed to parse sentiment, using defaults');\n}\n\n// Create final news item\nconst finalItem = {\n  symbol: newsData.symbol,\n  title: newsData.title,\n  link: newsData.link,\n  summary: newsData.summary,\n  publishedAt: newsData.publishedAt,\n  source: newsData.source + ' [AI-sentiment]',\n  sentiment: sentiment.toUpperCase(),\n  confidence: confidence,\n  reasoning: reasoning\n};\n\nconsole.log('Final item:', JSON.stringify(finalItem, null, 2));\nreturn [{ json: finalItem }];"
+      },
+      "name": "Combine News + Sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "combine-news-sentiment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source,\n  \"sentiment\": $json.sentiment\n} }}"
+      },
+      "name": "Save News + Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "id": "save-news"
+    }
+  ],
+  "connections": {
+    "Schedule Real News": {
+      "main": [
+        [
+          {
+            "node": "Real Stock URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Stock URLs": {
+      "main": [
+        [
+          {
+            "node": "Scrape Real News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Real News": {
+      "main": [
+        [
+          {
+            "node": "Extract News Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract News Content": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Sentiment Only",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combine News + Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Sentiment Only": {
+      "main": [
+        [
+          {
+            "node": "Combine News + Sentiment",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine News + Sentiment": {
+      "main": [
+        [
+          {
+            "node": "Save News + Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T16:45:00.000Z",
+  "versionId": "1"
+} 

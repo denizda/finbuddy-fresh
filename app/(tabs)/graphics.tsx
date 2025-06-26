@@ -85,9 +85,9 @@ export default function GraphicsScreen() {
   // Update selectedStock with real-time price if available
   const selectedStockWithRealtime = selectedStock ? {
     ...selectedStock,
-    price: realtimePrices?.[selectedStock.symbol] ?? selectedStock.realtimePrice,
-    change: 0, // We don't have change data from portfolio
-    changePercentage: 0, // We don't have change percentage from portfolio
+    price: realtimePrices?.[selectedStock.symbol]?.currentPrice ?? selectedStock.realtimePrice ?? selectedStock.price ?? 0,
+    change: realtimePrices?.[selectedStock.symbol]?.change ?? 0,
+    changePercentage: realtimePrices?.[selectedStock.symbol]?.changePercent ?? 0,
     shares: selectedStock.quantity,
     value: selectedStock.currentTotalValue,
   } : null;
@@ -186,7 +186,7 @@ export default function GraphicsScreen() {
             <View style={styles.stockInfoItem}>
               <Text style={styles.stockInfoLabel}>Price</Text>
               <Text style={styles.stockInfoValue}>
-                {isLoadingPrices ? 'Loading...' : `$${selectedStockWithRealtime.price?.toFixed(2)}`}
+                {isLoadingPrices ? 'Loading...' : `$${(selectedStockWithRealtime.price || 0).toFixed(2)}`}
               </Text>
             </View>
             <View style={styles.stockInfoItem}>
@@ -194,10 +194,10 @@ export default function GraphicsScreen() {
               <Text 
                 style={[
                   styles.stockInfoValue, 
-                  { color: selectedStockWithRealtime.change >= 0 ? Colors.secondary : Colors.negative }
+                  { color: (selectedStockWithRealtime.change || 0) >= 0 ? Colors.secondary : Colors.negative }
                 ]}
               >
-                {selectedStockWithRealtime.change >= 0 ? '+' : ''}${selectedStockWithRealtime.change.toFixed(2)} ({selectedStockWithRealtime.change >= 0 ? '+' : ''}{selectedStockWithRealtime.changePercentage.toFixed(2)}%)
+                {(selectedStockWithRealtime.change || 0) >= 0 ? '+' : ''}${(selectedStockWithRealtime.change || 0).toFixed(2)} ({(selectedStockWithRealtime.change || 0) >= 0 ? '+' : ''}{(selectedStockWithRealtime.changePercentage || 0).toFixed(2)}%)
               </Text>
             </View>
             <View style={styles.stockInfoItem}>
@@ -206,7 +206,7 @@ export default function GraphicsScreen() {
             </View>
             <View style={styles.stockInfoItem}>
               <Text style={styles.stockInfoLabel}>Value</Text>
-              <Text style={styles.stockInfoValue}>${selectedStockWithRealtime.value.toFixed(2)}</Text>
+              <Text style={styles.stockInfoValue}>${(selectedStockWithRealtime.value || 0).toFixed(2)}</Text>
             </View>
           </View>
           

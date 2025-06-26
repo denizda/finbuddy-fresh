@@ -1,0 +1,272 @@
+{
+  "name": "StockTitan Real News + ChatGPT Sentiment",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 17,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Schedule Real News",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of popular stocks for StockTitan scraping\nconst stockSymbols = [\n  'AAPL',\n  'MSFT', \n  'GOOGL',\n  'AMZN',\n  'TSLA',\n  'META',\n  'NVDA',\n  'NFLX',\n  'DIS',\n  'PYPL'\n];\n\nreturn stockSymbols.map(symbol => {\n  return {\n    json: {\n      symbol: symbol,\n      url: `https://www.stocktitan.net/news/${symbol}/`\n    }\n  };\n});"
+      },
+      "name": "Real Stock URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "stock-urls"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          },
+          "timeout": 25000,
+          "followRedirect": true
+        }
+      },
+      "name": "Scrape Real News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "id": "scrape-real-news"
+    },
+    {
+      "parameters": {
+        "dataPropertyName": "data",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "dates",
+              "cssSelector": "div:contains('PM'), div:contains('AM'), .date, [class*='date']",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "headlines",
+              "cssSelector": "h2, h3, .headline, [class*='title'], a[href*='/news/']",
+              "returnValue": "text",
+              "returnArray": true
+            },
+            {
+              "key": "links",
+              "cssSelector": "a[href*='/news/'], .news-link, [class*='link']",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "summaries",
+              "cssSelector": ".summary, [class*='summary'], .rhea-ai-summary, p:contains('Summary')",
+              "returnValue": "text",
+              "returnArray": true
+            }
+          ]
+        }
+      },
+      "name": "Extract Real Content",
+      "type": "n8n-nodes-base.htmlExtract",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "id": "extract-real-content"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process real StockTitan news data\nconst symbol = $json.symbol || 'UNKNOWN';\nconst dates = $json.dates || [];\nconst headlines = $json.headlines || [];\nconst links = $json.links || [];\nconst summaries = $json.summaries || [];\n\nconsole.log(`Processing REAL news for ${symbol}:`);\nconsole.log(`- Headlines found: ${headlines.length}`);\nconsole.log(`- Links found: ${links.length}`);\nconsole.log(`- Dates found: ${dates.length}`);\n\n// Filter out navigation/menu items and get real news\nconst realNews = headlines.filter(headline => \n  headline && \n  headline.trim().length > 20 && \n  !headline.toLowerCase().includes('login') &&\n  !headline.toLowerCase().includes('sign up') &&\n  !headline.toLowerCase().includes('news feed') &&\n  !headline.toLowerCase().includes('stock titan') &&\n  !headline.toLowerCase().includes('menu') &&\n  !headline.toLowerCase().includes('home')\n);\n\nconsole.log(`- Filtered real news items: ${realNews.length}`);\n\nconst results = [];\nfor (let i = 0; i < Math.min(realNews.length, 3); i++) {\n  const headline = realNews[i].trim();\n  \n  // Find corresponding link - REAL LINK from StockTitan\n  let newsLink = '';\n  if (links[i] && links[i].trim()) {\n    newsLink = links[i].startsWith('http') ? links[i] : `https://www.stocktitan.net${links[i]}`;\n  } else {\n    newsLink = `https://www.stocktitan.net/news/${symbol}/`; // Fallback to stock page\n  }\n  \n  // Find corresponding date\n  let publishDate = new Date().toISOString();\n  if (dates[i] && dates[i].includes('/')) {\n    try {\n      publishDate = new Date(dates[i]).toISOString();\n    } catch (e) {\n      publishDate = new Date().toISOString();\n    }\n  }\n  \n  // Find corresponding summary - REAL CONTENT\n  let summary = '';\n  if (summaries[i] && summaries[i].trim().length > 20) {\n    summary = summaries[i].trim().substring(0, 400);\n  } else {\n    summary = `Real news about ${symbol} from StockTitan. Visit link for full details.`;\n  }\n  \n  // Create unique title to avoid duplicates\n  const timestamp = Date.now();\n  const randomId = Math.floor(Math.random() * 1000);\n  const uniqueTitle = `${headline} - ${symbol} [REAL] ${timestamp}${randomId}`;\n  \n  results.push({\n    symbol: symbol,\n    title: uniqueTitle,\n    link: newsLink, // REAL LINK\n    summary: summary, // REAL CONTENT\n    publishedAt: publishDate,\n    source: 'stocktitan-real',\n    isReal: true, // Flag to indicate this is real news\n    extracted_at: new Date().toISOString()\n  });\n}\n\nconsole.log(`Final REAL results for ${symbol}: ${results.length} items`);\nreturn results.map(item => ({ json: item }));"
+      },
+      "name": "Process Real News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300],
+      "id": "process-real-news"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a financial sentiment analysis expert. Analyze the provided REAL stock news and determine the sentiment.\n\n**IMPORTANT**: This is REAL news scraped from actual financial websites. Do NOT generate or modify the content - only analyze the sentiment.\n\nFor each news item, determine if it's:\n- BULLISH: Positive news likely to drive stock price UP\n- BEARISH: Negative news likely to drive stock price DOWN  \n- NEUTRAL: News with unclear or minimal stock price impact\n\nReturn ONLY a JSON object with the sentiment:\n{\n  \"sentiment\": \"BULLISH|BEARISH|NEUTRAL\",\n  \"confidence\": \"high|medium|low\",\n  \"reasoning\": \"Brief explanation of sentiment decision\"\n}"
+            },
+            {
+              "role": "user",
+              "content": "=Analyze the sentiment for this REAL news:\n\nSymbol: {{ $json.symbol }}\nTitle: {{ $json.title }}\nSummary: {{ $json.summary }}\nSource: {{ $json.source }}\n\nProvide sentiment analysis for this real news item."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.2,
+          "maxTokens": 500
+        }
+      },
+      "name": "ChatGPT Sentiment Analysis",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [1340, 300],
+      "id": "chatgpt-sentiment",
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine real news with ChatGPT sentiment\n// Input 0: Real news from Process Real News node\n// Input 1: Sentiment from ChatGPT Sentiment Analysis node\n\nconst inputs = $input.all();\nconsole.log('=== DEBUGGING INPUTS ===');\nconsole.log('Number of inputs:', inputs.length);\nconsole.log('Input 0 (real news):', JSON.stringify(inputs[0]?.json, null, 2));\nconsole.log('Input 1 (sentiment):', JSON.stringify(inputs[1]?.json, null, 2));\n\nif (inputs.length < 2) {\n  console.error('Not enough inputs! Expected 2, got:', inputs.length);\n  return [{ json: { error: 'Missing inputs', inputCount: inputs.length } }];\n}\n\nconst realNews = inputs[0].json;\nconst sentimentResponse = inputs[1].json.message?.content || '';\n\nconsole.log('=== COMBINING REAL NEWS WITH SENTIMENT ===');\nconsole.log('Real news title:', realNews?.title || 'No title');\nconsole.log('Sentiment response:', sentimentResponse);\n\ntry {\n  // Parse ChatGPT sentiment response\n  let sentimentData = { sentiment: 'NEUTRAL', confidence: 'medium', reasoning: 'Default' };\n  \n  if (sentimentResponse) {\n    let cleanResponse = sentimentResponse.trim()\n      .replace(/^```json\\s*/i, '')\n      .replace(/\\s*```$/i, '')\n      .trim();\n    \n    try {\n      sentimentData = JSON.parse(cleanResponse);\n    } catch (e) {\n      console.log('Failed to parse sentiment, using default');\n    }\n  }\n  \n  // Validate sentiment\n  const validSentiments = ['BULLISH', 'BEARISH', 'NEUTRAL'];\n  const finalSentiment = validSentiments.includes(sentimentData.sentiment?.toUpperCase()) \n    ? sentimentData.sentiment.toUpperCase() \n    : 'NEUTRAL';\n  \n  // Combine real news with sentiment\n  const finalNewsItem = {\n    symbol: realNews.symbol,\n    title: realNews.title,\n    link: realNews.link, // REAL LINK\n    summary: realNews.summary, // REAL CONTENT\n    publishedAt: realNews.publishedAt,\n    source: realNews.source + ' [AI-sentiment]',\n    sentiment: finalSentiment, // AI-analyzed sentiment\n    confidence: sentimentData.confidence || 'medium',\n    reasoning: sentimentData.reasoning || 'Automated analysis',\n    isReal: true // This is real news\n  };\n  \n  console.log(`Final item: ${realNews.symbol} - ${finalSentiment}`);\n  return [{ json: finalNewsItem }];\n  \n} catch (error) {\n  console.error('Error combining news with sentiment:', error);\n  \n  // Fallback: return real news with neutral sentiment\n  return [{\n    json: {\n      symbol: realNews.symbol,\n      title: realNews.title,\n      link: realNews.link,\n      summary: realNews.summary,\n      publishedAt: realNews.publishedAt,\n      source: realNews.source + ' [error]',\n      sentiment: 'NEUTRAL',\n      confidence: 'low',\n      reasoning: 'Error in sentiment analysis',\n      isReal: true\n    }\n  }];\n}"
+      },
+      "name": "Combine Real News + Sentiment",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300],
+      "id": "combine-news-sentiment"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source,\n  \"sentiment\": $json.sentiment\n} }}"
+      },
+      "name": "Save Real News + Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1780, 300],
+      "id": "save-real-news"
+    }
+  ],
+  "connections": {
+    "Schedule Real News": {
+      "main": [
+        [
+          {
+            "node": "Real Stock URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Stock URLs": {
+      "main": [
+        [
+          {
+            "node": "Scrape Real News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Real News": {
+      "main": [
+        [
+          {
+            "node": "Extract Real Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Real Content": {
+      "main": [
+        [
+          {
+            "node": "Process Real News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Real News": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Sentiment Analysis",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Combine Real News + Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Sentiment Analysis": {
+      "main": [
+        [
+          {
+            "node": "Combine Real News + Sentiment",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine Real News + Sentiment": {
+      "main": [
+        [
+          {
+            "node": "Save Real News + Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T13:00:00.000Z",
+  "versionId": "1"
+} 

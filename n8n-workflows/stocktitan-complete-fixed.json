@@ -1,0 +1,197 @@
+{
+  "name": "StockTitan AI-Powered News Extractor",
+  "active": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 13,
+              "triggerAtMinute": 0
+            },
+            {
+              "triggerAtHour": 17,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "name": "Schedule Real News",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 3,
+      "position": [240, 300],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "// List of popular stocks for StockTitan scraping\nconst stockSymbols = [\n  'AAPL',\n  'MSFT', \n  'GOOGL',\n  'AMZN',\n  'TSLA',\n  'META',\n  'NVDA'\n];\n\nreturn stockSymbols.map(symbol => {\n  return {\n    json: {\n      symbol: symbol,\n      url: `https://www.stocktitan.net/news/${symbol}/`\n    }\n  };\n});"
+      },
+      "name": "Real Stock URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "id": "stock-urls"
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "identity",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+          },
+          "timeout": 25000,
+          "followRedirect": true
+        }
+      },
+      "name": "Scrape Real News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "id": "scrape-real-news"
+    },
+
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "**CRITICAL**: You are a HTML content extractor. You MUST ONLY extract information that is ACTUALLY PRESENT in the provided HTML content. DO NOT make up, invent, or hallucinate any news.\n\n**STRICT RULES**:\n1. ONLY extract news headlines/titles that are LITERALLY present in the HTML\n2. ONLY extract summaries/content that is LITERALLY present in the HTML  \n3. If you cannot find actual news content in the HTML, return an empty array []\n4. DO NOT generate fake news about Apple, iOS, or any other topics\n5. DO NOT create fictional headlines or summaries\n\n**TASK**: Extract ONLY real news items from the HTML content:\n- Look for actual headlines in <h1>, <h2>, <h3>, <a> tags\n- Look for actual article content/summaries in <p>, <div> tags\n- Look for actual links in href attributes\n- Determine sentiment based on the ACTUAL content found\n\n**OUTPUT**: Return ONLY a JSON array. If no real news found, return []:\n[\n  {\n    \"title\": \"EXACT headline from HTML\",\n    \"summary\": \"EXACT content from HTML (max 200 chars)\",\n    \"link\": \"EXACT link from HTML or empty string\",\n    \"sentiment\": \"BULLISH|BEARISH|NEUTRAL\",\n    \"confidence\": \"high|medium|low\",\n    \"reasoning\": \"Based on actual content found\"\n  }\n]\n\n**REMEMBER**: If the HTML doesn't contain actual financial news, return [] - do NOT make up content!"
+            },
+            {
+              "role": "user",
+              "content": "**IMPORTANT**: Extract ONLY actual news content from this HTML. DO NOT make up any news.\n\nStock Symbol: {{ $json.symbol }}\nURL: {{ $json.url }}\n\n**HTML Content to analyze:**\n{{ $json.data }}\n\n**INSTRUCTIONS**: \n- ONLY extract headlines/content that are ACTUALLY in the HTML above\n- If no real news is found in the HTML, return []\n- DO NOT create fictional news about {{ $json.symbol }} or any other topic\n- Extract maximum 2-3 REAL news items with sentiment analysis"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 2000
+        }
+      },
+      "name": "ChatGPT Extract & Analyze",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [1340, 300],
+      "id": "chatgpt-sentiment",
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ChatGPT extracted news with sentiment\nconst chatGPTResponse = $json.message?.content || '';\nconst symbol = $json.symbol || 'UNKNOWN';\nconst url = $json.url || '';\n\n// Extract symbol from URL if not provided\nlet finalSymbol = symbol;\nif (url && url.includes('/news/')) {\n  const urlMatch = url.match(/\\/news\\/([A-Z]+)\\//i);\n  if (urlMatch && urlMatch[1]) {\n    finalSymbol = urlMatch[1].toUpperCase();\n  }\n}\n\nconsole.log('=== PROCESSING CHATGPT EXTRACTED NEWS ===');\nconsole.log('Symbol:', finalSymbol);\nconsole.log('ChatGPT Response:', chatGPTResponse);\n\ntry {\n  // Clean and parse ChatGPT response\n  let cleanResponse = chatGPTResponse.trim()\n    .replace(/^```json\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n  \n  let newsItems = [];\n  try {\n    newsItems = JSON.parse(cleanResponse);\n  } catch (e) {\n    console.error('Failed to parse ChatGPT response as JSON:', e);\n    // Fallback: create a single news item\n    newsItems = [{\n      title: `News for ${finalSymbol}`,\n      summary: chatGPTResponse.substring(0, 300),\n      link: url,\n      sentiment: 'NEUTRAL',\n      confidence: 'low',\n      reasoning: 'Failed to parse structured response'\n    }];\n  }\n  \n  // Ensure newsItems is an array\n  if (!Array.isArray(newsItems)) {\n    newsItems = [newsItems];\n  }\n  \n  // Process each news item\n  const results = [];\n  for (let i = 0; i < Math.min(newsItems.length, 3); i++) {\n    const item = newsItems[i];\n    \n    // Validate sentiment\n    const validSentiments = ['BULLISH', 'BEARISH', 'NEUTRAL'];\n    const finalSentiment = validSentiments.includes(item.sentiment?.toUpperCase()) \n      ? item.sentiment.toUpperCase() \n      : 'NEUTRAL';\n    \n    // Create final news item\n    const timestamp = Date.now();\n    const randomId = Math.floor(Math.random() * 1000);\n    \n    const finalNewsItem = {\n      symbol: finalSymbol,\n      title: item.title || `News for ${finalSymbol}`,\n      link: item.link || url || `https://www.stocktitan.net/news/${finalSymbol}/`,\n      summary: item.summary || 'No summary available',\n      publishedAt: new Date().toISOString(),\n      source: 'stocktitan [AI-extracted]',\n      sentiment: finalSentiment,\n      confidence: item.confidence || 'medium',\n      reasoning: item.reasoning || 'AI analysis'\n    };\n    \n    results.push({ json: finalNewsItem });\n  }\n  \n  console.log(`Created ${results.length} news items for ${finalSymbol}`);\n  return results;\n  \n} catch (error) {\n  console.error('Error processing ChatGPT response:', error);\n  \n  // Fallback: return a single error item\n  return [{\n    json: {\n      symbol: finalSymbol,\n      title: `Error processing news for ${finalSymbol}`,\n      link: url || `https://www.stocktitan.net/news/${finalSymbol}/`,\n      summary: 'Error occurred while processing news content',\n      publishedAt: new Date().toISOString(),\n      source: 'stocktitan [error]',\n      sentiment: 'NEUTRAL',\n      confidence: 'low',\n      reasoning: 'Processing error'\n    }\n  }];\n}"
+      },
+      "name": "Process ChatGPT News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300],
+      "id": "process-chatgpt-news"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://finbuddy-fresh-9mom.vercel.app/api/news",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"symbol\": $json.symbol,\n  \"title\": $json.title,\n  \"link\": $json.link,\n  \"summary\": $json.summary,\n  \"publishedAt\": $json.publishedAt,\n  \"source\": $json.source,\n  \"sentiment\": $json.sentiment\n} }}"
+      },
+      "name": "Save Real News + Sentiment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1780, 300],
+      "id": "save-real-news"
+    }
+  ],
+  "connections": {
+    "Schedule Real News": {
+      "main": [
+        [
+          {
+            "node": "Real Stock URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Real Stock URLs": {
+      "main": [
+        [
+          {
+            "node": "Scrape Real News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Real News": {
+      "main": [
+        [
+          {
+            "node": "ChatGPT Extract & Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ChatGPT Extract & Analyze": {
+      "main": [
+        [
+          {
+            "node": "Process ChatGPT News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process ChatGPT News": {
+      "main": [
+        [
+          {
+            "node": "Save Real News + Sentiment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2024-12-26T16:20:00.000Z",
+  "versionId": "1"
+}
