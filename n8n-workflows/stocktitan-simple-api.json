@@ -109,8 +109,34 @@
           ]
         },
         "sendBody": true,
-        "contentType": "json",
-        "jsonBody": "={\n  \"symbol\": \"{{$json.symbol}}\",\n  \"title\": \"{{$json.title}}\",\n  \"link\": \"{{$json.link}}\",\n  \"summary\": \"{{$json.summary}}\",\n  \"publishedAt\": \"{{$json.publishedAt}}\",\n  \"source\": \"{{$json.source}}\"\n}",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "symbol",
+              "value": "={{ $json.symbol }}"
+            },
+            {
+              "name": "title", 
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "link",
+              "value": "={{ $json.link }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "name": "publishedAt",
+              "value": "={{ $json.publishedAt }}"
+            },
+            {
+              "name": "source",
+              "value": "={{ $json.source }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 15000
         }
