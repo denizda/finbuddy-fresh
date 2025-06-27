@@ -4,8 +4,10 @@ import { Platform } from "react-native";
 import Constants from 'expo-constants';
 import { Config } from './config';
 import { Logger } from './logger';
+import type { AppRouter } from '../backend/trpc/app-router';
+import superjson from 'superjson';
 
-export const trpc = createTRPCReact<any>();
+export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
   // Check if we're running in Expo Go on a physical device (tunnel mode)
@@ -54,7 +56,7 @@ const getToken = () => {
 
 const baseUrl = getBaseUrl();
 
-export const trpcClient = createTRPCClient<any>({
+export const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
       url: baseUrl ? `${baseUrl}/api/trpc` : 'https://api.placeholder.com/api/trpc',
@@ -107,6 +109,7 @@ export const trpcClient = createTRPCClient<any>({
       }
     }),
   ],
+  transformer: superjson,
   // Disable batching for now to simplify debugging
   // batch: { enabled: false },
 });

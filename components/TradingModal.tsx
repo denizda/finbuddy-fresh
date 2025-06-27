@@ -64,41 +64,41 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
   }, [visible]);
 
   // Search stocks with debounced query
-  const { data: searchResults, isLoading: isSearching, error: searchError } = trpc.useQuery([
-    'stocks.searchStocks',
-    { query: debouncedSearchQuery }
-  ], {
-    enabled: isModalReady && debouncedSearchQuery.length > 2 && !existingStock,
-    retry: 1, // Only retry once
-    refetchOnWindowFocus: false,
-  });
+  const { data: searchResults, isLoading: isSearching, error: searchError } = trpc.stocks.searchStocks.useQuery(
+    { query: debouncedSearchQuery },
+    {
+      enabled: isModalReady && debouncedSearchQuery.length > 2 && !existingStock,
+      retry: 1, // Only retry once
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Get account balance
-  const { data: accountData } = trpc.useQuery([
-    'trading.getAccountBalance',
-    { userId: user?.id || '' }
-  ], {
-    enabled: isModalReady && !!user?.id,
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
+  const { data: accountData } = trpc.trading.getAccountBalance.useQuery(
+    { userId: user?.id || '' },
+    {
+      enabled: isModalReady && !!user?.id,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Get stock quote for selected stock
-  const { data: stockQuote, error: quoteError } = trpc.useQuery([
-    'stocks.getStockQuote',
-    { symbol: selectedStock?.symbol || existingStock?.symbol || '' }
-  ], {
-    enabled: isModalReady && !!(selectedStock?.symbol || existingStock?.symbol),
-    retry: 1,
-    refetchOnWindowFocus: false,
-  });
+  const { data: stockQuote, error: quoteError } = trpc.stocks.getStockQuote.useQuery(
+    { symbol: selectedStock?.symbol || existingStock?.symbol || '' },
+    {
+      enabled: isModalReady && !!(selectedStock?.symbol || existingStock?.symbol),
+      retry: 1,
+      refetchOnWindowFocus: false,
+    }
+  );
 
   // Execute trade mutation
-  const tradeMutation = trpc.useMutation(['trading.executeTrade'], {
+  const tradeMutation = trpc.trading.executeTrade.useMutation({
     onSuccess: () => {
       Alert.alert('Success', `Trade executed successfully!`);
-      utils.invalidateQueries(['portfolio.getPortfolio']);
-      utils.invalidateQueries(['trading.getAccountBalance']);
+      trpc.useContext().portfolio.getPortfolio.invalidate();
+      trpc.useContext().trading.getAccountBalance.invalidate();
       onTradeComplete();
       handleClose();
     },

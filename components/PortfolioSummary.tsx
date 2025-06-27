@@ -11,19 +11,15 @@ export default function PortfolioSummary() {
   
   if (!user?.id) return null;
   
-  const { data: portfolioData, isLoading: isLoadingPortfolio } = trpc.useQuery([
-    'portfolio.getPortfolio',
-    { userId: user.id }
-  ], {
-    enabled: true
-  });
+  const { data: portfolioData, isLoading: isLoadingPortfolio } = trpc.portfolio.getPortfolio.useQuery(
+    { userId: user.id },
+    { enabled: true }
+  );
   
-  const { data: accountData, isLoading: isLoadingAccount } = trpc.useQuery([
-    'trading.getAccountBalance',
-    { userId: user.id }
-  ], {
-    enabled: true
-  });
+  const { data: accountData, isLoading: isLoadingAccount } = trpc.trading.getAccountBalance.useQuery(
+    { userId: user.id },
+    { enabled: true }
+  );
   
   const portfolioSummary = portfolioData?.summary || { 
     totalValue: 0, 
