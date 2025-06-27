@@ -244,6 +244,8 @@ const styles = StyleSheet.create({
   stockInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: Theme.spacing.sm,
   },
   stockIconContainer: {
     width: 40,
@@ -348,12 +350,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Theme.spacing.sm,
+    minWidth: 120,
   },
   tradeButton: {
     backgroundColor: Colors.primary,
     paddingHorizontal: Theme.spacing.sm,
     paddingVertical: Theme.spacing.xs,
     borderRadius: Theme.borderRadius.sm,
+    minWidth: 50,
   },
   tradeButtonText: {
     color: Colors.background,

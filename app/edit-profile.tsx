@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, 
   View, 
@@ -9,7 +9,9 @@ import {
   Alert,
   StatusBar,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
@@ -32,6 +34,13 @@ export default function EditProfileScreen() {
     phone: '',
     photo_url: ''
   });
+  
+  // Refs for scroll and input management
+  const scrollViewRef = useRef<ScrollView>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const phoneContainerRef = useRef<View>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const emailContainerRef = useRef<View>(null);
 
   useEffect(() => {
     loadProfile();
@@ -152,6 +161,44 @@ export default function EditProfileScreen() {
     router.replace('/(tabs)/profile');
   };
 
+  const handlePhoneFocus = () => {
+    // Use a simpler but more reliable approach
+    setTimeout(() => {
+      // Scroll to a position that should show the phone field
+      scrollViewRef.current?.scrollTo({
+        y: 400, // Approximate position of phone field
+        animated: true
+      });
+    }, 200);
+    
+    // Additional scroll after keyboard animation completes
+    setTimeout(() => {
+      // More aggressive scroll to ensure visibility
+      scrollViewRef.current?.scrollTo({
+        y: 500, // Even further down to account for keyboard
+        animated: true
+      });
+    }, 600);
+  };
+
+  const handleEmailFocus = () => {
+    // Scroll to show email field
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 300, // Position for email field
+        animated: true
+      });
+    }, 200);
+    
+    // Additional scroll after keyboard animation completes
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 350, // Ensure email field stays visible
+        animated: true
+      });
+    }, 600);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -163,11 +210,19 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 20}
+    >
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <ScrollView 
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        bounces={false}
+        ref={scrollViewRef}
       >
         <Text style={styles.title}>Edit Profile</Text>
 
@@ -215,7 +270,7 @@ export default function EditProfileScreen() {
           />
         </View>
 
-        <View style={styles.formGroup}>
+        <View style={styles.formGroup} ref={emailContainerRef}>
           <Text style={styles.label}>Email Address</Text>
           <TextInput
             style={styles.input}
@@ -225,10 +280,14 @@ export default function EditProfileScreen() {
             placeholderTextColor={Colors.secondaryText}
             keyboardType="email-address"
             autoCapitalize="none"
+            returnKeyType="next"
+            ref={emailInputRef}
+            onFocus={handleEmailFocus}
+            onSubmitEditing={() => phoneInputRef.current?.focus()}
           />
         </View>
 
-        <View style={styles.formGroup}>
+        <View style={styles.formGroup} ref={phoneContainerRef}>
           <Text style={styles.label}>Telephone</Text>
           <TextInput
             style={styles.input}
@@ -237,6 +296,9 @@ export default function EditProfileScreen() {
             placeholder="Enter your telephone"
             placeholderTextColor={Colors.secondaryText}
             keyboardType="phone-pad"
+            returnKeyType="done"
+            ref={phoneInputRef}
+            onFocus={handlePhoneFocus}
           />
         </View>
 
@@ -261,7 +323,7 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -273,6 +335,10 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     padding: 20,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    paddingBottom: 80, // Reasonable padding for keyboard space
   },
   title: {
     fontSize: 24,

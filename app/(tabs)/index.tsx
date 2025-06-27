@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, ScrollView, StatusBar, TouchableOpacity } from 'react-native';
-import AnimatedDollarIcon from '@/components/AnimatedDollarIcon';
+
 import StockList from '@/components/StockList';
 import PortfolioSummary from '@/components/PortfolioSummary';
 import TradingModal from '@/components/TradingModal';
@@ -23,9 +23,7 @@ export default function HomeScreen() {
       <Stack.Screen 
         options={{
           headerTitle: "", // Empty string to remove FinBuddy text
-          headerLeft: () => (
-            <AnimatedDollarIcon />
-          ),
+          headerLeft: () => null,
           headerRight: () => (
             <View style={styles.headerRightIcons}>
               <TouchableOpacity style={styles.iconButton}>

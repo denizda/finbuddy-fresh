@@ -11,7 +11,7 @@ export const Config = {
     development: {
       ios: 'http://localhost:3000',
       android: 'http://10.0.2.2:3000',
-      web: ''
+      web: 'http://localhost:3000'
     }
   },
   

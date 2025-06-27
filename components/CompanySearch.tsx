@@ -4,56 +4,60 @@ import Icon from 'react-native-vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import Colors from '@/constants/colors';
 import Theme from '@/constants/theme';
-import { supabase } from '@/lib/supabase';
+import { trpc } from '@/lib/trpc';
 
 export type Company = {
   id: string | number;
   symbol: string;
   name: string;
-  sector: string;
-  industry: string;
+  sector?: string;
+  industry?: string;
   marketCap?: string;
   price?: number;
   change?: number;
   changePercentage?: number;
+  type?: string;
+  description?: string;
 };
 
 export default function CompanySearch() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const router = useRouter();
 
+  // Debounce search query to avoid too many API calls
   useEffect(() => {
-    const fetchCompanies = async () => {
-      setIsLoading(true);
-      const { data, error } = await supabase.from('companies').select('*');
-      if (error) {
-        console.error('Error fetching companies from Supabase:', error);
-      } else if (data) {
-        console.log('Fetched companies:', data);
-        setCompanies(data as Company[]);
-        setFilteredCompanies(data as Company[]);
-      }
-      setIsLoading(false);
-    };
-    fetchCompanies();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 500);
 
-  useEffect(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (query === '') {
-      setFilteredCompanies(companies);
-    } else {
-      const filtered = companies.filter((company) => {
-        const symbol = company.symbol?.toLowerCase() || '';
-        const name = company.name?.toLowerCase() || '';
-        return symbol.includes(query) || name.includes(query);
-      });
-      setFilteredCompanies(filtered);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Use TRPC to search stocks via Finnhub
+  const { data: searchResults = [], isLoading, error } = trpc.stocks.searchStocks.useQuery(
+    { query: debouncedQuery },
+    { 
+      enabled: debouncedQuery.trim().length > 0,
+      retry: 2,
+      staleTime: 30000, // Cache results for 30 seconds
     }
-  }, [searchQuery, companies]);
+  );
+
+  // Transform Finnhub search results to match Company interface
+  const companies: Company[] = searchResults.map((result: any) => ({
+    id: result.symbol,
+    symbol: result.symbol,
+    name: result.description || result.symbol,
+    description: result.description,
+    type: result.type,
+    price: result.price,
+    change: result.change,
+    changePercentage: result.changePercent,
+    sector: undefined, // Finnhub search doesn't provide sector/industry in basic search
+    industry: undefined,
+    marketCap: undefined,
+  }));
 
   const handleBuy = (companyId: Company['id']) => {
     router.push(`/place-order?id=${companyId}&action=buy`);
@@ -74,7 +78,9 @@ export default function CompanySearch() {
           <View style={styles.companyInfo}>
             <Text style={styles.companySymbol}>{item.symbol}</Text>
             <Text style={styles.companyName}>{item.name}</Text>
-            <Text style={styles.companySector}>{item.sector} • {item.industry}</Text>
+            {item.type && (
+              <Text style={styles.companySector}>{item.type}</Text>
+            )}
           </View>
           <View style={styles.companyPriceInfo}>
             <Text style={styles.companyPrice}>
@@ -86,13 +92,15 @@ export default function CompanySearch() {
                 { color: isPositive ? Colors.secondary : Colors.negative },
               ]}
             >
-              {item.change !== undefined && item.change !== null
-                ? `${isPositive ? '+' : ''}${item.change.toFixed(2)} (${isPositive ? '+' : ''}${(item.changePercentage !== null && item.changePercentage !== undefined) ? item.changePercentage.toFixed(2) : '0.00'}%)`
+              {item.change !== undefined && item.change !== null && item.changePercentage !== undefined && item.changePercentage !== null
+                ? `${isPositive ? '+' : ''}${item.change.toFixed(2)} (${isPositive ? '+' : ''}${item.changePercentage.toFixed(2)}%)`
                 : 'N/A'}
             </Text>
-            <Text style={styles.companyMarketCap}>
-              Market Cap: {item.marketCap ?? 'N/A'}
-            </Text>
+            {item.marketCap && (
+              <Text style={styles.companyMarketCap}>
+                Market Cap: {item.marketCap}
+              </Text>
+            )}
           </View>
         </TouchableOpacity>
         <View style={styles.actionButtons}>
@@ -107,6 +115,9 @@ export default function CompanySearch() {
     );
   };
 
+  const showNoResults = debouncedQuery.trim().length > 0 && !isLoading && companies.length === 0;
+  const showInitialState = debouncedQuery.trim().length === 0;
+
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
@@ -114,7 +125,7 @@ export default function CompanySearch() {
           <Icon name="search" size={20} color={Colors.secondaryText} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search NASDAQ companies..."
+            placeholder="Search stocks (e.g., AAPL, Tesla)..."
             placeholderTextColor={Colors.secondaryText}
             value={searchQuery}
             onChangeText={(text) => {
@@ -132,18 +143,32 @@ export default function CompanySearch() {
         </View>
       </View>
 
-      {isLoading ? (
+      {showInitialState ? (
+        <View style={styles.initialStateContainer}>
+          <Icon name="search" size={48} color={Colors.secondaryText} />
+          <Text style={styles.initialStateText}>Search for stocks by symbol or company name</Text>
+          <Text style={styles.initialStateSubtext}>Try searching for "AAPL", "Tesla", or "Microsoft"</Text>
+        </View>
+      ) : isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={Colors.primary} />
-          <Text style={styles.loadingText}>Loading companies...</Text>
+          <Text style={styles.loadingText}>Searching stocks...</Text>
         </View>
-      ) : filteredCompanies.length === 0 ? (
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Icon name="alert-circle" size={48} color={Colors.negative} />
+          <Text style={styles.errorText}>Error searching stocks</Text>
+          <Text style={styles.errorSubtext}>Please try again or check your connection</Text>
+        </View>
+      ) : showNoResults ? (
         <View style={styles.noResultsContainer}>
-          <Text style={styles.noResultsText}>No companies found matching "{searchQuery}"</Text>
+          <Icon name="search" size={48} color={Colors.secondaryText} />
+          <Text style={styles.noResultsText}>No stocks found matching "{debouncedQuery}"</Text>
+          <Text style={styles.noResultsSubtext}>Try searching for a different symbol or company name</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredCompanies}
+          data={companies}
           renderItem={renderCompanyItem}
           keyExtractor={(item) => item.id?.toString() ?? Math.random().toString()}
           contentContainerStyle={styles.listContent}
@@ -283,6 +308,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   noResultsText: {
+    fontSize: Theme.typography.sizes.md,
+    color: Colors.secondaryText,
+    textAlign: 'center',
+  },
+  noResultsSubtext: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Colors.secondaryText,
+    textAlign: 'center',
+    marginTop: Theme.spacing.xs,
+  },
+  initialStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  initialStateText: {
+    fontSize: Theme.typography.sizes.lg,
+    color: Colors.text,
+    marginTop: Theme.spacing.sm,
+    textAlign: 'center',
+  },
+  initialStateSubtext: {
+    fontSize: Theme.typography.sizes.md,
+    color: Colors.secondaryText,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: Theme.typography.sizes.lg,
+    color: Colors.negative,
+    marginTop: Theme.spacing.sm,
+    textAlign: 'center',
+  },
+  errorSubtext: {
     fontSize: Theme.typography.sizes.md,
     color: Colors.secondaryText,
     textAlign: 'center',

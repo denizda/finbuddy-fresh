@@ -65,6 +65,43 @@ export default function LoginScreen() {
     router.push('/signup');
   };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Email Required', 'Please enter your email address first');
+      return;
+    }
+
+    Alert.alert(
+      'Reset Password',
+      'Send a password reset link to your email?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Send Link', 
+          onPress: async () => {
+            try {
+              const { supabase } = await import('@/lib/supabase');
+              const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: 'finbuddy://reset-password',
+              });
+              
+              if (error) {
+                Alert.alert('Error', error.message);
+              } else {
+                Alert.alert(
+                  'Reset Link Sent', 
+                  'Check your email for a password reset link'
+                );
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to send reset email');
+            }
+          }
+        }
+      ]
+    );
+  };
+
 
 
   return (
@@ -123,13 +160,14 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              keyboardType="numeric"
               onFocus={() => setIsPasswordFocused(true)}
               onBlur={() => setIsPasswordFocused(false)}
               accessibilityLabel="Password input"
             />
           </View>
 
-          <TouchableOpacity style={styles.forgotPasswordButton}>
+          <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 

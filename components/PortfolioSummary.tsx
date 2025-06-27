@@ -88,15 +88,16 @@ const styles = StyleSheet.create({
     ...Theme.shadows.medium,
   },
   label: {
-    fontSize: Theme.typography.sizes.sm,
+    fontSize: Theme.typography.sizes.xs,
     color: Colors.secondaryText,
     marginBottom: Theme.spacing.xs,
+    fontWeight: Theme.typography.weights.medium as any,
   },
   value: {
-    fontSize: Theme.typography.sizes.xxxl,
+    fontSize: Theme.typography.sizes.xxl,
     fontWeight: Theme.typography.weights.bold as any,
     color: Colors.text,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.sm,
   },
   changeContainer: {
     flexDirection: 'row',
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cashValue: {
-    fontSize: Theme.typography.sizes.xl,
+    fontSize: Theme.typography.sizes.lg,
     fontWeight: Theme.typography.weights.semibold as any,
     color: Colors.primary,
     marginTop: Theme.spacing.xs,

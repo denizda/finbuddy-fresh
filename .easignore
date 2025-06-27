@@ -1,0 +1,19 @@
+# Exclude server files from mobile builds
+server.ts
+backend/
+api/
+tsconfig.server.json
+vercel.json
+
+# Exclude N8N workflows
+n8n-workflows/
+
+# Exclude server logs and build artifacts
+*.log
+dist/
+build/
+.vercel/
+
+# Exclude development files
+.env*
+.DS_Store 

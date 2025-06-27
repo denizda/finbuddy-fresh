@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -32,18 +32,45 @@ interface TradingModalProps {
 
 export default function TradingModal({ visible, onClose, onTradeComplete, existingStock }: TradingModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedStock, setSelectedStock] = useState<any>(null);
   const [quantity, setQuantity] = useState('');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
+  const [isModalReady, setIsModalReady] = useState(false);
   const { user } = useAuthStore();
   const utils = trpc.useContext();
 
-  // Search stocks
-  const { data: searchResults, isLoading: isSearching } = trpc.useQuery([
+  // Add debouncing for search queries
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Add a small delay to prevent queries from running immediately
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        setIsModalReady(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      setIsModalReady(false);
+      setSearchQuery('');
+      setDebouncedSearchQuery('');
+    }
+  }, [visible]);
+
+  // Search stocks with debounced query
+  const { data: searchResults, isLoading: isSearching, error: searchError } = trpc.useQuery([
     'stocks.searchStocks',
-    { query: searchQuery }
+    { query: debouncedSearchQuery }
   ], {
-    enabled: searchQuery.length > 0 && !existingStock,
+    enabled: isModalReady && debouncedSearchQuery.length > 2 && !existingStock,
+    retry: 1, // Only retry once
+    refetchOnWindowFocus: false,
   });
 
   // Get account balance
@@ -51,15 +78,19 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
     'trading.getAccountBalance',
     { userId: user?.id || '' }
   ], {
-    enabled: !!user?.id,
+    enabled: isModalReady && !!user?.id,
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   // Get stock quote for selected stock
-  const { data: stockQuote } = trpc.useQuery([
+  const { data: stockQuote, error: quoteError } = trpc.useQuery([
     'stocks.getStockQuote',
     { symbol: selectedStock?.symbol || existingStock?.symbol || '' }
   ], {
-    enabled: !!(selectedStock?.symbol || existingStock?.symbol),
+    enabled: isModalReady && !!(selectedStock?.symbol || existingStock?.symbol),
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
   // Execute trade mutation
@@ -87,6 +118,7 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
     setSelectedStock(null);
     setQuantity('');
     setTradeType('buy');
+    setIsModalReady(false);
     onClose();
   };
 
@@ -162,9 +194,16 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
                 />
               </View>
 
-              {isSearching && (
+              {isSearching && searchQuery.length > 0 && (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="small" color={Colors.primary} />
+                  <Text style={styles.loadingText}>Searching...</Text>
+                </View>
+              )}
+
+              {searchError && debouncedSearchQuery.length > 2 && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>Unable to search stocks at the moment. Please try again later.</Text>
                 </View>
               )}
 
@@ -337,6 +376,20 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: Theme.spacing.lg,
     alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Colors.secondaryText,
+    marginTop: Theme.spacing.xs,
+  },
+  errorContainer: {
+    padding: Theme.spacing.lg,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: Theme.typography.sizes.sm,
+    color: Colors.negative,
+    textAlign: 'center',
   },
   searchResults: {
     maxHeight: 200,

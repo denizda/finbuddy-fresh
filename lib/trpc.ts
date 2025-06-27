@@ -1,13 +1,23 @@
-import { createReactQueryHooks } from '@trpc/react-query';
+import { createTRPCReact } from '@trpc/react-query';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { Platform } from "react-native";
-import type { AppRouter } from './trpc-app-router';
+import Constants from 'expo-constants';
 import { Config } from './config';
 import { Logger } from './logger';
 
-export const trpc = createReactQueryHooks<AppRouter>();
+export const trpc = createTRPCReact<any>();
 
 const getBaseUrl = () => {
+  // Check if we're running in Expo Go on a physical device (tunnel mode)
+  const isExpoGo = Constants.appOwnership === 'expo';
+  const isPhysicalDevice = !Constants.isDevice || Platform.OS === 'ios';
+  
+  // If running in Expo Go on physical device, use production API
+  if (isExpoGo && isPhysicalDevice) {
+    Logger.info('Using production API for Expo Go on physical device');
+    return Config.api.production;
+  }
+  
   // For development, use localhost with the correct port
   if (Config.isDev) {
     if (Platform.OS === 'android') {
@@ -44,7 +54,7 @@ const getToken = () => {
 
 const baseUrl = getBaseUrl();
 
-export const trpcClient = createTRPCClient<AppRouter>({
+export const trpcClient = createTRPCClient<any>({
   links: [
     httpBatchLink({
       url: baseUrl ? `${baseUrl}/api/trpc` : 'https://api.placeholder.com/api/trpc',

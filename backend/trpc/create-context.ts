@@ -1,13 +1,7 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC } from "@trpc/server";
-// import superjson from "superjson";
+import superjson from "superjson";
 import { supabase } from "../../lib/supabase-backend";
-
-// Dynamic import for superjson
-let superjson: any;
-(async () => {
-  superjson = (await import("superjson")).default;
-})();
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {

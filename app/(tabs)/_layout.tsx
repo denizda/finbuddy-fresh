@@ -60,9 +60,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="lists"
         options={{
-          title: 'Lists',
-          tabBarIcon: ({ color }) => <Feather name="list" size={22} color={color} />,
-          headerTitle: 'Stock Groups',
+          href: null, // This hides the tab from the tab bar
         }}
       />
       <Tabs.Screen
