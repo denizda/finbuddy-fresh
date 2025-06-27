@@ -27,26 +27,26 @@ export default function StockList() {
 
   if (!user?.id) return null; // or a loading spinner
 
-  const { data, isLoading, error, refetch } = trpc.useQuery([
-    'portfolio.getPortfolio',
-    { userId: user.id }
-  ], {
-    enabled: true,
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
-  });
+  const { data, isLoading, error, refetch } = trpc.portfolio.getPortfolio.useQuery(
+    { userId: user.id },
+    {
+      enabled: true,
+      refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    }
+  );
 
   const portfolioItems: PortfolioItem[] = data?.portfolioItems || []; // Explicitly type the fetched data
   const totalPortfolioValue = data?.summary.totalValue || 0;
 
   // Get real-time prices for all stocks
   const symbols = portfolioItems.map(item => item.symbol);
-  const { data: realtimePrices, isLoading: isPricesLoading } = trpc.useQuery([
-    'portfolio.getRealtimePrices',
-    { symbols }
-  ], {
-    enabled: symbols.length > 0,
-    refetchInterval: 30000, // Refetch every 30 seconds
-  });
+  const { data: realtimePrices, isLoading: isPricesLoading } = trpc.portfolio.getRealtimePrices.useQuery(
+    { symbols },
+    {
+      enabled: symbols.length > 0,
+      refetchInterval: 30000, // Refetch every 30 seconds
+    }
+  );
 
   // Auto-refresh every 30 seconds
   useEffect(() => {

@@ -43,24 +43,24 @@ export default function GraphicsScreen() {
   if (!user?.id) return null;
 
   // Fetch portfolio data
-  const { data: portfolioData, isLoading: isLoadingPortfolio } = trpc.useQuery([
-    'portfolio.getPortfolio',
-    { userId: user.id }
-  ], {
-    enabled: true
-  });
+  const { data: portfolioData, isLoading: isLoadingPortfolio } = trpc.portfolio.getPortfolio.useQuery(
+    { userId: user.id },
+    {
+      enabled: true
+    }
+  );
 
   const stocks = portfolioData?.portfolioItems || [];
   const selectedStock = stocks[selectedStockIndex] || null;
 
   // Fetch real-time prices for all stocks
   const symbols = stocks.map((s) => s.symbol);
-  const { data: realtimePrices, isLoading: isLoadingPrices } = trpc.useQuery([
-    'portfolio.getRealtimePrices',
-    { symbols }
-  ], {
-    enabled: symbols.length > 0
-  });
+  const { data: realtimePrices, isLoading: isLoadingPrices } = trpc.portfolio.getRealtimePrices.useQuery(
+    { symbols },
+    {
+      enabled: symbols.length > 0
+    }
+  );
 
   // Show loading state
   if (isLoadingPortfolio) {
@@ -85,7 +85,7 @@ export default function GraphicsScreen() {
   // Update selectedStock with real-time price if available
   const selectedStockWithRealtime = selectedStock ? {
     ...selectedStock,
-    price: realtimePrices?.[selectedStock.symbol]?.currentPrice ?? selectedStock.realtimePrice ?? selectedStock.price ?? 0,
+    price: realtimePrices?.[selectedStock.symbol]?.currentPrice ?? selectedStock.realtimePrice ?? 0,
     change: realtimePrices?.[selectedStock.symbol]?.change ?? 0,
     changePercentage: realtimePrices?.[selectedStock.symbol]?.changePercent ?? 0,
     shares: selectedStock.quantity,

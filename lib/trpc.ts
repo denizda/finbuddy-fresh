@@ -10,26 +10,17 @@ import superjson from 'superjson';
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  // Check if we're running in Expo Go on a physical device (tunnel mode)
-  const isExpoGo = Constants.appOwnership === 'expo';
-  const isPhysicalDevice = !Constants.isDevice || Platform.OS === 'ios';
-  
-  // If running in Expo Go on physical device, use production API
-  if (isExpoGo && isPhysicalDevice) {
-    Logger.info('Using production API for Expo Go on physical device');
-    return Config.api.production;
-  }
-  
-  // For development, use localhost with the correct port
+  // For development, always try local first
   if (Config.isDev) {
+    Logger.info('Development mode - using local API');
     if (Platform.OS === 'android') {
       return Config.api.development.android;
     }
     if (Platform.OS === 'web') {
       return Config.api.development.web;
     }
-    // For iOS simulator and physical devices in development
-    return Config.api.development.ios;
+    // For iOS physical devices in development, use the same IP as Expo tunnel
+    return 'http://172.20.10.2:3000';
   }
   
   // In production, use environment variable or configured URL
@@ -108,6 +99,6 @@ export const trpcClient = createTRPCClient<AppRouter>({
         });
       }
     }),
-  ],
-  transformer: superjson,
-});
+      ],
+    transformer: superjson,
+  });
