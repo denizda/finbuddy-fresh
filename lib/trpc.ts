@@ -110,6 +110,4 @@ export const trpcClient = createTRPCClient<AppRouter>({
     }),
   ],
   transformer: superjson,
-  // Disable batching for now to simplify debugging
-  // batch: { enabled: false },
 });
