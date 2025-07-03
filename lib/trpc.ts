@@ -9,7 +9,12 @@ import type { AppRouter } from '../backend/trpc/app-router';
 export const trpc = createTRPCReact<AppRouter>();
 
 const getBaseUrl = () => {
-  // For development, always try local first
+  // Always use production API for now since local development server causes issues
+  Logger.info('Using production API URL for stability');
+  return Config.api.production;
+  
+  // Original logic commented out - uncomment when local dev server is stable
+  /*
   if (Config.isDev) {
     Logger.info('Development mode - using local API');
     if (Platform.OS === 'android') {
@@ -18,7 +23,7 @@ const getBaseUrl = () => {
     if (Platform.OS === 'web') {
       return Config.api.development.web;
     }
-    // For iOS physical devices in development, use the same IP as Expo tunnel
+    // For iOS physical devices in development, use Mac's IP
     return 'http://172.20.10.2:3000';
   }
   
@@ -35,6 +40,7 @@ const getBaseUrl = () => {
   // Production URL
   Logger.info('Using production API URL', { url: Config.api.production });
   return Config.api.production;
+  */
 };
 
 // Helper to get the auth token
@@ -49,53 +55,33 @@ const baseUrl = getBaseUrl();
 export const trpcClient = createTRPCClient<AppRouter>({
   links: [
     httpBatchLink({
-      url: baseUrl ? `${baseUrl}/api/trpc` : 'https://api.placeholder.com/api/trpc',
+      url: `${baseUrl}/api/trpc`,
       fetch: async (url, options) => {
-        // In production with Vercel, make normal API calls
-        if (baseUrl && !baseUrl.includes('placeholder')) {
-          try {
-            const response = await fetch(url, options);
-            return response;
-          } catch (error) {
-            Logger.error('tRPC network error', error);
-            // Fallback to mock response on network error
-            return new Response(JSON.stringify({ 
-              result: { 
-                data: { 
-                  portfolioItems: [], 
-                  summary: { 
-                    totalValue: 0, 
-                    dailyChange: 0, 
-                    dailyChangePercentage: 0, 
-                    allocation: [] 
-                  } 
+        try {
+          Logger.debug('TRPC Request:', { url: url.toString() });
+          const response = await fetch(url, options);
+          Logger.debug('TRPC Response:', { status: response.status });
+          return response;
+        } catch (error) {
+          Logger.error('TRPC network error', error);
+          // Fallback to mock response on network error
+          return new Response(JSON.stringify({ 
+            result: { 
+              data: { 
+                portfolioItems: [], 
+                summary: { 
+                  totalValue: 0, 
+                  dailyChange: 0, 
+                  dailyChangePercentage: 0, 
+                  allocation: [] 
                 } 
               } 
-            }), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-        }
-        
-        // If no backend URL configured, return mock success response
-        Logger.debug('Backend disabled - returning mock response');
-        return new Response(JSON.stringify({ 
-          result: { 
-            data: { 
-              portfolioItems: [], 
-              summary: { 
-                totalValue: 0, 
-                dailyChange: 0, 
-                dailyChangePercentage: 0, 
-                allocation: [] 
-              } 
             } 
-          } 
-        }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        });
+          }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
       }
     }),
   ],
