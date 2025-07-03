@@ -1,7 +1,6 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC } from "@trpc/server";
 import { supabase } from "../../lib/supabase-backend";
-import superjson from "superjson";
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
@@ -14,9 +13,18 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
-// Initialize tRPC with superjson to match client
+// Initialize tRPC with dynamic superjson import to avoid ES module issues
 const t = initTRPC.context<Context>().create({
-  transformer: superjson,
+  transformer: {
+    input: {
+      serialize: (object) => JSON.stringify(object),
+      deserialize: (object) => JSON.parse(object),
+    },
+    output: {
+      serialize: (object) => JSON.stringify(object),
+      deserialize: (object) => JSON.parse(object),
+    },
+  },
 });
 
 export const createTRPCRouter = t.router;
