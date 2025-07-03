@@ -13,19 +13,8 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
-// Initialize tRPC with dynamic superjson import to avoid ES module issues
-const t = initTRPC.context<Context>().create({
-  transformer: {
-    input: {
-      serialize: (object) => JSON.stringify(object),
-      deserialize: (object) => JSON.parse(object),
-    },
-    output: {
-      serialize: (object) => JSON.stringify(object),
-      deserialize: (object) => JSON.parse(object),
-    },
-  },
-});
+// Initialize tRPC with standard JSON serialization - no superjson needed
+const t = initTRPC.context<Context>().create();
 
 export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
