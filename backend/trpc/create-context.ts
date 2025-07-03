@@ -13,7 +13,7 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
 
-// Initialize tRPC without transformer (client handles it)
+// Initialize tRPC without transformer to match client
 const t = initTRPC.context<Context>().create();
 
 export const createTRPCRouter = t.router;
