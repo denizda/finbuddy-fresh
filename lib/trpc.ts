@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { Config } from './config';
 import { Logger } from './logger';
 import type { AppRouter } from '../backend/trpc/app-router';
+import superjson from 'superjson';
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -99,4 +100,5 @@ export const trpcClient = createTRPCClient<AppRouter>({
       }
     }),
   ],
+  transformer: superjson,
 });
