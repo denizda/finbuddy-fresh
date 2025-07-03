@@ -18,6 +18,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Log environment check
+    console.log('Environment check:', {
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasSupabaseKey: !!process.env.SUPABASE_ANON_KEY,
+      nodeVersion: process.version
+    });
+
     // Dynamically import ES modules
     const { fetchRequestHandler } = await import('@trpc/server/adapters/fetch');
     const { appRouter } = await import('../backend/trpc/app-router.js');
@@ -46,20 +53,40 @@ export default async function handler(req, res) {
         supabase,
       }),
       onError: ({ error, type, path, input }) => {
-        console.error('TRPC Error:', { error: type, path, input });
+        console.error('TRPC Error:', { error: error.message, type, path, input });
       },
     });
 
     // Convert Response to Vercel response
     const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
     
-    res.status(response.status).json(data);
+    // Handle empty response
+    if (!text) {
+      res.status(response.status).json({ result: { data: null } });
+      return;
+    }
+    
+    try {
+      const data = JSON.parse(text);
+      res.status(response.status).json(data);
+    } catch (parseError) {
+      console.error('JSON Parse Error:', parseError, 'Raw text:', text);
+      res.status(500).json({ 
+        error: 'Invalid JSON response', 
+        message: 'Failed to parse server response' 
+      });
+    }
   } catch (error) {
-    console.error('Server error:', error);
+    console.error('Vercel API Error:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    
     res.status(500).json({ 
       error: 'Internal server error', 
-      message: error.message || 'Unknown error' 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 } 
