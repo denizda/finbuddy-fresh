@@ -47,7 +47,7 @@ export default function NewsScreen() {
       }
 
       // Fetch news from your API endpoint
-      const response = await fetch('https://finbuddy-fresh-9mom.vercel.app/api/news', {
+      const response = await fetch('https://finbuddy-fresh.vercel.app/api/news', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

@@ -7,12 +7,12 @@ export const Config = {
   
   // API URLs
   api: {
-    production: 'https://finbuddy-fresh-9mom.vercel.app',
     development: {
-      ios: 'http://localhost:3000',
+      web: 'http://localhost:3000',
       android: 'http://10.0.2.2:3000',
-      web: 'http://localhost:3000'
-    }
+      ios: 'http://localhost:3000',
+    },
+    production: 'https://finbuddy-fresh.vercel.app',
   },
   
   // Supabase
