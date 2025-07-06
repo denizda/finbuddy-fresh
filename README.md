@@ -249,4 +249,26 @@ For support, email support@finbuddy.app or create an issue in this repository.
 
 ---
 
-**Built with ❤️ by the FinBuddy Team** 
+**Built with ❤️ by the FinBuddy Team**
+
+## 🚀 Production Deployment & API Health
+
+- **Backend deployed on Vercel:**
+  - Main API: https://finbuddy-fresh.vercel.app/api/trpc/[procedure]
+  - Health check: https://finbuddy-fresh.vercel.app/api/health
+- **Dynamic API routes** are now supported via `[trpc].js` for tRPC endpoints.
+- **ESM support**: Project uses ES Modules (`"type": "module"` in `package.json`).
+
+## Troubleshooting
+
+- **404 on API endpoints:**
+  - Ensure Vercel deployment is complete and successful.
+  - Confirm `api/[trpc].js` exists at the project root for dynamic tRPC routes.
+- **Supabase errors (e.g., fetch failed):**
+  - Check that `SUPABASE_URL` and `SUPABASE_ANON_KEY` are set in Vercel project environment variables.
+  - Make sure these match your Supabase project.
+  - Redeploy after updating environment variables.
+- **ESM/CommonJS warnings:**
+  - Project is set to ESM. If you see conversion warnings, ensure all backend code uses `import/export` syntax.
+
+--- 
