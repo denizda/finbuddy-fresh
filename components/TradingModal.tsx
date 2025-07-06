@@ -67,9 +67,9 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
   const { data: searchResults, isLoading: isSearching, error: searchError } = trpc.stocks.searchStocks.useQuery(
     { query: debouncedSearchQuery },
     {
-      enabled: isModalReady && debouncedSearchQuery.length > 2 && !existingStock,
-      retry: 1, // Only retry once
-      refetchOnWindowFocus: false,
+    enabled: isModalReady && debouncedSearchQuery.length > 2 && !existingStock,
+    retry: 1, // Only retry once
+    refetchOnWindowFocus: false,
     }
   );
 
@@ -77,9 +77,9 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
   const { data: accountData } = trpc.trading.getAccountBalance.useQuery(
     { userId: user?.id || '' },
     {
-      enabled: isModalReady && !!user?.id,
-      retry: 1,
-      refetchOnWindowFocus: false,
+    enabled: isModalReady && !!user?.id,
+    retry: 1,
+    refetchOnWindowFocus: false,
     }
   );
 
@@ -87,9 +87,9 @@ export default function TradingModal({ visible, onClose, onTradeComplete, existi
   const { data: stockQuote, error: quoteError } = trpc.stocks.getStockQuote.useQuery(
     { symbol: selectedStock?.symbol || existingStock?.symbol || '' },
     {
-      enabled: isModalReady && !!(selectedStock?.symbol || existingStock?.symbol),
-      retry: 1,
-      refetchOnWindowFocus: false,
+    enabled: isModalReady && !!(selectedStock?.symbol || existingStock?.symbol),
+    retry: 1,
+    refetchOnWindowFocus: false,
     }
   );
 

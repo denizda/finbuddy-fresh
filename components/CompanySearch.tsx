@@ -97,9 +97,9 @@ export default function CompanySearch() {
                 : 'N/A'}
             </Text>
             {item.marketCap && (
-              <Text style={styles.companyMarketCap}>
+            <Text style={styles.companyMarketCap}>
                 Market Cap: {item.marketCap}
-              </Text>
+            </Text>
             )}
           </View>
         </TouchableOpacity>
