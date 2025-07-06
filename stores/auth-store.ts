@@ -23,7 +23,7 @@ interface AuthState {
   isLoading: boolean;
   error: string | null;
   
-  // Auth actions
+  // Auth actions by dd
   login: (email: string, password: string) => Promise<{
     success: boolean;
     error?: string;
