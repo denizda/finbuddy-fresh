@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     // Dynamically import ES modules
     const { fetchRequestHandler } = await import('@trpc/server/adapters/fetch');
-    const { appRouter } = await import('../../backend/trpc/app-router.js');
+    const { appRouter } = await import('./app-router.ts');
     const { supabase } = await import('../../lib/supabase-backend.js');
     
     // Extract the procedure path from the URL
