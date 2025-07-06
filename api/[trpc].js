@@ -1,3 +1,4 @@
+// [trpc].js - Dynamic TRPC API route handler for Vercel
 export default async function handler(req, res) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,10 +28,10 @@ export default async function handler(req, res) {
 
     // Dynamically import ES modules
     const { fetchRequestHandler } = await import('@trpc/server/adapters/fetch');
-    const { appRouter } = await import('../backend/trpc/app-router.js');
-    const { supabase } = await import('../lib/supabase-backend.js');
+    const { appRouter } = await import('../../backend/trpc/app-router.js');
+    const { supabase } = await import('../../lib/supabase-backend.js');
     
-    // Convert Vercel request to standard Request object
+    // Extract the procedure path from the URL
     const protocol = req.headers['x-forwarded-proto'] || 'https';
     const host = req.headers.host || 'localhost';
     const url = `${protocol}://${host}${req.url}`;
